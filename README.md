@@ -18,6 +18,17 @@ easysnap is a simple bash script which will take snapshots of designated dataset
    * __Notice:__ easysnap removes/adjusts only the number of snapshots provided for this run. E.g. if you run the `./easysnap hourly` routine then it will only remove snapshots containing the string `èasysnap-hourly` in the snapshot name. No other snapshots are touched. This is intentional as you might want to make custom snapshots at some points and those should not be automatically removed.
 1. When you have setup at least one dataset, you will need to add a cronjob or systemd timer to actually call the easysnap tool with the jobname that it should run. E.g. if you setup `easysnap:hourly` you could add a cron like `0 * * * * /path/to/easysnap hourly`. The parameter provided to the easysnap script (in this case `hourly`) must match the desired user property in the dataset `easysnap:hourly`. You can also run the script manually whenever you want, just call it like `./easysnap hourly`. In the [cron.example](cron.example) file you have examples for the common snapshot intervals.
 
+### Format of the snapshots
+
+Snapshots taken with easysnap look like this:
+
+```
+pool/path/to/DS@1540490401_easysnap-hourly_2018-10-25_20h00-CEST
+pool/path/to/DS@1540490401_easysnap-frequent_2018-10-25_20h00-CEST
+
+```
+
+For sorting order the first part `1540490401` is the unix timestamp. This will ensure, that we don't end up with two snapshots with the same name. The second part is the `easysnap-interval`, so that we can make sure we only add/delete snapshots of the supplied job interval given. The last part is date / time provided incl. timezone `2018-10-25_20h00-CEST` for easier understanding of when a snapshot was actually taken.
 
 
 ## esaysnapRecv
