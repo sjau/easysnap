@@ -11,6 +11,7 @@ easysnap is a simple bash script which will take snapshots of designated dataset
 
 ### How to use
 
+1. Clone this repo or just fetch the easysnap script and make it executable.
 1. You need to a custom user property to the desired dataset. You can do this by `zfs set easysnap:hourly="240:200" pool/path/to/dataset`, where
    * `easysnap:hourly` is the property name. The mandatory part is the `easysnap` one and the custom one is the `hourly` one. Instead of `hourly` you can provide any string, but common ones would be `frequent`, `hourly`, `daily`, `weekly`, `monthly` because they can easily be scripted to run by cron or systemd timers. But as said, you can provide any optional string.
    * `240:200` indicates that it should keep 240 snapshots and give a notices when there's less than 200GB free space on the pool. The free space notice is optional, so you could also just use `200`. Instead for a positive number of snapshots you could also use `-1` (unlimited snapshots) or `0` (remove all easysnap:xxx snapshots) or set it to `false` (don't make any snapshots/changes).
