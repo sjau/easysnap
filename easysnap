@@ -1,0 +1,147 @@
+#!/usr/bin/env bash                                                                                                                                                                                                          
+
+#------------------------------------------------------------------------------#
+#                                                                              #
+#                              BELOW BE DRAGONS                                #
+#                                                                              #
+#------------------------------------------------------------------------------#
+
+# Set the colors on the messages
+_Info() {
+    printf '%sInfo:%s %s\n' "${yellow}" "${reset}" "${1}"
+}
+_Success() {
+    printf '%sSuccess:%s %s\n' "${green}" "${reset}" "${1}"
+}
+_Error() {
+    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${serverName}"
+    exit 1
+}
+
+
+
+# Create cleanup
+cleanup() {
+    # Check free space
+    freeSpaceCheck || _Info "Couldn't check free space."
+}
+
+# Creating locking
+lock() {
+    exec 200>/run/easysnap-${frequency}.lock || _Error "Couldn't acquire lock for easysnap-${frequency}. Abort."
+    flock -n 200 || _Error "easysnap-${frequency} is already running. Abort."
+}
+
+
+
+freeSpaceCheck() {
+    for curDS in "${!dsArr[@]}"; do
+        reqFreeG=${dsArr[${curDS}]}
+        reqFree=$((reqFreeG * 1024 * 1024 * 1024))
+        curFree=$(zfs list -H -p -o avail "${curDS}")
+        if (( curFree < reqFree )); then
+            curFreeG=$((curFree / 1024 / 1024 / 1024))
+            _Info "${curDS}: Free space is below ${reqFreeG}G at ${curFreeG}G"
+        fi
+    done
+}
+
+getNumberOfSnapshots() {
+    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${frequency}" | wc -l)
+}
+
+makeBookmark() {
+    zfs bookmark "${localDS}@${now}" "${localDS}#${now}" || _Info "Couldn't create bookmark on ${localDS}"
+}
+
+makeSnapshot() {
+    zfs snapshot "${localDS}@${now}" || _Info "Couldn't create snapshot on ${localDS}";
+}
+
+removeLocalSnapshots() {
+    getNumberOfSnapshots
+    while (( curSnaps >= snaps )); do
+        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${frequency}" | head -1 )
+        zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
+        getNumberOfSnapshots
+    done
+}
+
+
+
+
+
+
+# Do some stuff first before actually
+# Check if it is an interactive shell, if so set colors.
+if [[ $- == *i* ]]; then
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    yellow=$(tput setaf 3)
+    reset=$(tput sgr0)
+fi
+
+
+
+# Get arguments and create pool name array
+frequency="${1}"
+declare -A dsArr
+
+
+
+# Check if script runs as root
+if [[ ${EUID} -ne 0 ]]; then
+    _Error "Please run as root. Abort."
+fi
+
+
+
+#Check for lock
+lock || _Error "Couldn't check for the file lock. Abort."
+# Trap the cleanup
+trap cleanup EXIT
+
+
+
+# Check if time argument was given, can be frequent, hourly, daily, weekly, monthly or custom.
+if [[ -z "${frequency}" ]]; then
+    _Error "No argument was given. Abort."
+fi
+
+# Get current time for snapshot
+now=$(date "+%s_easysnap-${frequency}_%Y-%m-%d_%Hh%M-%Z")
+
+# We want to get the snapshot as close to the designated time as possible, so we first just make the snapshots
+while read -r localDS property value source; do
+    # Split the value into number of snapshots and minimal free space
+    IFS=: read -r snaps reqFreeG <<<${value}
+    # Put the dataset name into and min. free space into an array for checking free size at the end of the runtime.
+    (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
+    # Check if snaps is a number
+    if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
+        case "${snaps}" in
+            "-1")   makeSnapshot
+                    ;;
+            "0")    # Do nothing 
+                    ;;
+            *)      makeSnapshot
+         esac
+    fi
+done < <(zfs get -H easysnap:${frequency} -t filesystem)
+
+# That's why bookmarking and removal will run after making the snapshots.
+while read -r localDS property value source; do
+    # Splite the value into number of snapshots and minim free space
+    IFS=: read -r snaps reqFreeG <<<${value}
+    # Check if snaps is a number
+    if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
+        case "${snaps}" in
+            "-1")   makeBookmark
+                    ;;
+            "0")    removeLocalSnapshots
+                    ;;
+            *)      makeBookmark
+                    removeLocalSnapshots
+        esac
+    fi
+done < <(zfs get -H easysnap:${frequency} -t filesystem)

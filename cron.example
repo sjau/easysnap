@@ -1,0 +1,10 @@
+# Frequent snapshot - run every 15 minutes
+*/15 * * * *    /usr/local/bin/easysnap frequent
+# Hourly snapshots - run every hour
+0 * * * *       /usr/local/bin/easysnap hourly
+# Daily snapshots - run at midnight
+0 0 * * *       /usr/local/bin/easysnap daily
+# Weekly snapshots - run sunday at midnight (00:00h between sunday -> monday)
+0 0 * * 1       /usr/local/bin/easysnap weekly
+# Monthly snapshots - run on the first day of the month
+0 0 1 * *       /usr/local/bin/easysnap monthly
