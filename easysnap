@@ -60,7 +60,7 @@ makeSnapshot() {
 
 removeLocalSnapshots() {
     getNumberOfSnapshots
-    while (( curSnaps >= snaps )); do
+    while (( curSnaps > snaps )); do
         oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${frequency}" | head -1 )
         zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
         getNumberOfSnapshots
