@@ -23,14 +23,14 @@ _Error() {
 
 # Check for the config file
 checkConfig() {
-    cfgFile="/etc/easysnap/easysnap.${frequency}"
+    cfgFile="/etc/easysnap/easysnap.${interval}"
     [[ ! -f "${cfgFile}" ]] && _Error "Couldn't find ${cfgFile}. Abort."
 }
 
 # Creating locking
 lock() {
-    exec 200>/run/easysnapRecv-${frequency}.lock || _Error "Couldn't acquire lock for easysnapRecv-${frequency}. Abort."
-    flock -n 200 || _Error "easysnapRecv-${frequency} is already running. Abort."
+    exec 200>/run/easysnapRecv-${interval}.lock || _Error "Couldn't acquire lock for easysnapRecv-${interval}. Abort."
+    flock -n 200 || _Error "easysnapRecv-${interval} is already running. Abort."
 }
 
 # Create cleanup
@@ -68,17 +68,17 @@ freeSpaceCheck() {
 }
 
 getLatestLocalSnapshot() {
-    latestSnapshot=$(zfs list -H -t snapshot -o name -s name -d1 ${localDS} | grep "easysnap-${frequency}" | tail -1)
+    latestSnapshot=$(zfs list -H -t snapshot -o name -s name -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
     latestSnapshot="${latestSnapshot##*@}"
 }
 
 getLatestRemoteSnapshot() {
-    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s name -d1 ${remoteDS} | grep 'easysnap-${frequency}' | tail -1")
+    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s name -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -1")
     latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
 }
 
 getNumberOfSnapshots() {
-    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${frequency}" | wc -l)
+    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${interval}" | wc -l)
 }
 
 importPool() {
@@ -97,7 +97,7 @@ loadKey() {
 removeLocalSnapshots() {
     getNumberOfSnapshots
     while (( curSnaps > snaps )); do
-        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${frequency}" | head -1 )
+        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${interval}" | head -1 )
         zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
         getNumberOfSnapshots
     done
@@ -136,7 +136,7 @@ fi
 
 
 # Get arguments and create pool name array
-frequency="${1}"
+interval="${1}"
 declare -A dsArr
 declare -A poolArr
 
@@ -157,7 +157,7 @@ checkConfig
 
 
 # Check if time argument was given, can be frequent, hourly, daily, weekly, monthly or custom.
-[[ -z "${frequency}" ]] && _Error "No argument was given. Abort."
+[[ -z "${interval}" ]] && _Error "No argument was given. Abort."
 
 
 # Go through the loop for receiving the backups
@@ -207,4 +207,4 @@ while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remot
         esac
     echo "$localDS -> finished"
     fi
-done  {fd}<"/etc/easysnap/easysnap.${frequency}"
+done  {fd}<"/etc/easysnap/easysnap.${interval}"

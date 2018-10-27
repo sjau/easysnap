@@ -28,8 +28,8 @@ cleanup() {
 
 # Creating locking
 lock() {
-    exec 200>/run/easysnap-${frequency}.lock || _Error "Couldn't acquire lock for easysnap-${frequency}. Abort."
-    flock -n 200 || _Error "easysnap-${frequency} is already running. Abort."
+    exec 200>/run/easysnap-${interval}.lock || _Error "Couldn't acquire lock for easysnap-${interval}. Abort."
+    flock -n 200 || _Error "easysnap-${interval} is already running. Abort."
 }
 
 
@@ -47,7 +47,7 @@ freeSpaceCheck() {
 }
 
 getNumberOfSnapshots() {
-    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${frequency}" | wc -l)
+    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${interval}" | wc -l)
 }
 
 makeBookmark() {
@@ -61,7 +61,7 @@ makeSnapshot() {
 removeLocalSnapshots() {
     getNumberOfSnapshots
     while (( curSnaps > snaps )); do
-        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${frequency}" | head -1 )
+        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${interval}" | head -1 )
         zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
         getNumberOfSnapshots
     done
@@ -86,7 +86,7 @@ fi
 
 
 # Get arguments and create pool name array
-frequency="${1}"
+interval="${1}"
 declare -A dsArr
 
 
@@ -106,12 +106,12 @@ trap cleanup EXIT
 
 
 # Check if time argument was given, can be frequent, hourly, daily, weekly, monthly or custom.
-if [[ -z "${frequency}" ]]; then
+if [[ -z "${interval}" ]]; then
     _Error "No argument was given. Abort."
 fi
 
 # Get current time for snapshot
-now=$(date "+%s_easysnap-${frequency}_%Y-%m-%d_%Hh%M-%Z")
+now=$(date "+%s_easysnap-${interval}_%Y-%m-%d_%Hh%M-%Z")
 
 # We want to get the snapshot as close to the designated time as possible, so we first just make the snapshots
 while read -r localDS property value source; do
@@ -126,7 +126,7 @@ while read -r localDS property value source; do
         (( snaps >= 1 )) && makeSnapshot    # 1+ is a given amount of snapshots, so make one
         # 0 means to remove all snapshots, so don't create a new one
     fi
-done < <(zfs get -H easysnap:${frequency} -t filesystem)
+done < <(zfs get -H easysnap:${interval} -t filesystem)
 
 # That's why bookmarking and removal will run after making the snapshots.
 while read -r localDS property value source; do
@@ -139,4 +139,4 @@ while read -r localDS property value source; do
         (( snaps == 0 )) && removeLocalSnapshots                    # 0 means to remove all snapshots, so no bookmark but removing
         (( snaps >= 1 )) && makeBookmark && removeLocalSnapshots    # 1+ means a given amount of snapshots, so make bookmark and removing
     fi
-done < <(zfs get -H easysnap:${frequency} -t filesystem)
+done < <(zfs get -H easysnap:${interval} -t filesystem)

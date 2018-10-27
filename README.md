@@ -44,22 +44,22 @@ easysanpRecv is a simple bash script which will zfs send/receive datasets or inc
 
 ### How to use
 
-1. You need to make a configuration file in `/etc/easysnap` named linke `easysnap.frequent`, `easysnap.hourly` etc. It must correspondent with the easysnap frequency name chosen.
+1. You need to make a configuration file in `/etc/easysnap` named linke `easysnap.frequent`, `easysnap.hourly` etc. It must correspondent with the easysnap interval name chosen.
 1. The config has the following format: `localDS,keyDS,raw,intermediary,exportPool,remoteHost,remoteDS,snaps,reqFreeG`
    * `localDS`: The path to the local dataset that shall be used, e.g. `tank/path/to/Backups/xxx`. __Notice:__ If the local dataset does not exist, it will be created and it will just have the latest snapshot. If you want to have also previous intermediary snapshots, then you should first make a zfs send/recv starting from the snapshot you want.
    * `keyDS`: In case you make use of encryption, you will need to provide the path to the dataset that holds the encryption (it's a different one when inheritance is used). I just by for all my encrypted zfs the following: `tankXXX/encZFS`. If your local dataset has no encryption, just leave it empty.
    * `raw`: In case the remote dataset that you want to receive is encrypted you can set the raw flag to `y`, then it will be sent in raw mode. This is espeically useful when the receiving machine is untrusted, e.g. features no encryption by default. That way the receiving dataset will still be encrypted.
-   * `intermediary`: By default easysnap will use the `-i` flag to just send an incremental snapshot. If you also want intermediar snapshots then set this option to `y` and easysnap will try to send the intermediary snapshots also with the `-I` flag. However, if intermediary sending fails, it will output a notice and retry with just incremental snapshot. __Notice:__ If you use the intermediary sending, it may also send snapshots from other tools and other frequncies. E.g. if you just do a daily send, it will for example also include hourly and frequent snapshots and they won't get removed by the deleting, as deleting of snapshots strictly adheres to just the chosen frequency.
+   * `intermediary`: By default easysnap will use the `-i` flag to just send an incremental snapshot. If you also want intermediar snapshots then set this option to `y` and easysnap will try to send the intermediary snapshots also with the `-I` flag. However, if intermediary sending fails, it will output a notice and retry with just incremental snapshot. __Notice:__ If you use the intermediary sending, it may also send snapshots from other tools and other frequncies. E.g. if you just do a daily send, it will for example also include hourly and frequent snapshots and they won't get removed by the deleting, as deleting of snapshots strictly adheres to just the chosen interval.
    * `exportPool`: Set to `y` if you want to export the pool after receiving is done. This can be useful if you want to make backups onto removable media such as usb thumb drives or external usb drives. Easysnap will automatically try to import the pool for receiving when it's not imported already. The export happens at the very end of routine.
    * `remoteHost`: Provide the remote user and host that shall send the dataset, e.g. `root@myserver.tld` or you can also use like `root@localhost`
    * `remoteDS`: The path to the remote dataset that shall be sent.
-   * `snaps`: The amount of snapshots to keep locally. Remember: This only goes for the selected frequency.
+   * `snaps`: The amount of snapshots to keep locally. Remember: This only goes for the selected interval.
       * `-1`: To keep an unlimited amount of snapshots (never delete them).
       * `0`: To delete all snapshots but still receive current/incremental data.
       * `1+`: The amount of snapshots to keep.
    * `reqFreeG`: Give notice when there's less space than the amount of gigabytes indicated on the pool, e.g. `200` would give a warning when the free space on the pool falls below 200G.
    * __Notice:__ easysnapRecv will by default use the `-F` flag, meaning that it will auto-rollback to the latest snapshot when required.
-1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to. Use as first parameter the frequency indicator, e.g. `0 * * * * /path/to/easysnap/easysnapRecv hourly`
+1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to. Use as first parameter the interval indicator, e.g. `0 * * * * /path/to/easysnap/easysnapRecv hourly`
 
 ## ToDo
 
