@@ -14,7 +14,7 @@ _Success() {
     printf '%sSuccess:%s %s\n' "${green}" "${reset}" "${1}"
 }
 _Error() {
-    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${serverName}"
+    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}"
     exit 1
 }
 
@@ -159,7 +159,7 @@ checkConfig
 
 
 # Go through the loop for receiving the backups
-while IFS=';' read -r localDS keyDS raw intermediary exportPool remoteHost remoteDS snaps reqFreeG; do
+while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remoteHost remoteDS snaps reqFreeG; do
     # Check if first letter of the localDS string is a letter. Pool names can only start with letters.
     if [[ ${localDS:0:1} =~ [[:alpha:]] ]]; then
         localPool="${localDS%%/*}"
@@ -195,13 +195,15 @@ while IFS=';' read -r localDS keyDS raw intermediary exportPool remoteHost remot
                     # Remove local snapshots
                     # Check if snaps is a number
                     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-                        (( snaps >= 0 )) && removeLocalSnapshots        # 0+ means to limit snapshots, so removing is required
+                        (( snaps >= 0 )) && removeLocalSnapshots
+                        # 0+ means to limit snapshots, so removing is required
                         # -1 means infinite amount of snapshots, so no removing
                     fi
                 }
                 ;;
             *)
-                printf "Couldn't determine receiving mode for ${remoteDS}" && continue
+                printf "Couldn't determine receiving mode for ${remoteDS}"
         esac
+    echo "$localDS -> finished"
     fi
-done < "/etc/easysnap/easysnap.${frequency}"
+done  {fd}<"/etc/easysnap/easysnap.${frequency}"
