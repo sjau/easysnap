@@ -63,6 +63,5 @@ easysanpRecv is a simple bash script which will zfs send/receive datasets or inc
 
 ## ToDo
 
-- easysnapRecv
 - pre-/post snapshot hooks for stuff like database locking and flushing
 - systemd timer examples
