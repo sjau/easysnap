@@ -119,13 +119,10 @@ while read -r localDS property value source; do
     (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
     # Check if snaps is a number
     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-        case "${snaps}" in
-            "-1")   makeSnapshot
-                    ;;
-            "0")    # Do nothing 
-                    ;;
-            *)      makeSnapshot
-         esac
+        # Take action according to snaps limit
+        (( snaps == -1 )) && makeSnapshot   # -1 is infinite snapshots, so make one
+        (( snaps >= 1 )) && makeSnapshot    # 1+ is a given amount of snapshots, so make one
+        # 0 means to remove all snapshots, so don't create a new one
     fi
 done < <(zfs get -H easysnap:${frequency} -t filesystem)
 
@@ -135,13 +132,9 @@ while read -r localDS property value source; do
     IFS=: read -r snaps reqFreeG <<<${value}
     # Check if snaps is a number
     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-        case "${snaps}" in
-            "-1")   makeBookmark
-                    ;;
-            "0")    removeLocalSnapshots
-                    ;;
-            *)      makeBookmark
-                    removeLocalSnapshots
-        esac
+        # Take action according to snaps limit
+        (( snaps == -1 )) && makeBookmark                           # -1 means to take infitine snapshots, so bookmark is required but no removing
+        (( snaps == 0 )) && removeLocalSnapshots                    # 0 means to remove all snapshots, so no bookmark but removing
+        (( snaps >= 1 )) && makeBookmark && removeLocalSnapshots    # 1+ means a given amount of snapshots, so make bookmark and removing
     fi
 done < <(zfs get -H easysnap:${frequency} -t filesystem)
