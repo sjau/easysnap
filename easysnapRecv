@@ -113,7 +113,7 @@ sendSnapshot() {
     getLatestRemoteSnapshot
     if [[ "${intermediary}" = "y" ]]; then
         { ssh "${remoteHost}" "zfs send ${raw} -I ${remoteDS}@${latestSnapshot} ${remoteDS}@${latestRemoteSnapshot}" | zfs receive -F "${localDS}"; } ||
-        { _Info "Couldn't send ${remoteDS} with intermediary snapshots. Retrying as incremental snapshot" &&
+        { _Info "Couldn't send ${remoteDS} to ${localDS} with intermediary snapshots. Retrying as incremental snapshot" &&
           ssh "${remoteHost}" "zfs send ${raw} -i ${remoteDS}#${latestSnapshot} ${remoteDS}@${latestRemoteSnapshot}" | zfs receive -F "${localDS}"; }
     else
         ssh "${remoteHost}" "zfs send ${raw} -i ${remoteDS}#${latestSnapshot} ${remoteDS}@${latestRemoteSnapshot}" | zfs receive -F "${localDS}"
