@@ -8,13 +8,13 @@
 
 # Set the colors on the messages
 _Info() {
-    printf '%sInfo:%s %s\n' "${yellow}" "${reset}" "${1}"
+    printf '%sInfo:%s %s\n%s\n' "${yellow}" "${reset}" "${1}" "on ${hostName}"
 }
 _Success() {
-    printf '%sSuccess:%s %s\n' "${green}" "${reset}" "${1}"
+    printf '%sSuccess:%s %s\n%s\n' "${green}" "${reset}" "${1}" "on ${hostName}"
 }
 _Error() {
-    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${serverName}"
+    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${hostName}"
     exit 1
 }
 
@@ -72,9 +72,11 @@ removeLocalSnapshots() {
 
 
 
-# Do some stuff first before actually
-# Check if it is an interactive shell, if so set colors.
-if [[ $- == *i* ]]; then
+# Do some stuff first before actually working
+# Get hostname for info/error messages
+hostName=$(hostname)
+# Check if stdout is a tty
+if [[ -t 1 ]]; then
     red=$(tput setaf 1)
     green=$(tput setaf 2)
     yellow=$(tput setaf 3)

@@ -123,9 +123,10 @@ sendSnapshot() {
 
 
 # Do some stuff first before actually working
-# Check if it is an interactive shell, if so set colors.
+# Get hostname for info/error messages
 hostName=$(hostname)
-if [[ $- == *i* ]]; then
+# Check if stdout is a tty
+if [[ -t 1 ]]; then
     red=$(tput setaf 1)
     green=$(tput setaf 2)
     yellow=$(tput setaf 3)
