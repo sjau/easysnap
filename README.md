@@ -58,6 +58,7 @@ easysanpRecv is a simple bash script which will zfs send/receive datasets or inc
       * `0`: To delete all snapshots but still receive current/incremental data.
       * `1+`: The amount of snapshots to keep.
    * `reqFreeG`: Give notice when there's less space than the amount of gigabytes indicated on the pool, e.g. `200` would give a warning when the free space on the pool falls below 200G.
+   * __Notice:__ easysnapRecv will by default use the `-F` flag, meaning that it will auto-rollback to the latest snapshot when required.
 1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to. Use as first parameter the frequency indicator, e.g. `0 * * * * /path/to/easysnap/easysnapRecv hourly`
 
 ## ToDo
