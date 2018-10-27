@@ -8,13 +8,13 @@
 
 # Set the colors on the messages
 _Info() {
-    printf '%sInfo:%s %s\n' "${yellow}" "${reset}" "${1}"
+    printf '%sInfo:%s %s\n%s\n' "${yellow}" "${reset}" "${1}" "on ${hostName}"
 }
 _Success() {
-    printf '%sSuccess:%s %s\n' "${green}" "${reset}" "${1}"
+    printf '%sSuccess:%s %s\n%s\n' "${green}" "${reset}" "${1}" "on ${hostName}"
 }
 _Error() {
-    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}"
+    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${hostName}"
     exit 1
 }
 
@@ -124,6 +124,7 @@ sendSnapshot() {
 
 # Do some stuff first before actually working
 # Check if it is an interactive shell, if so set colors.
+hostName=$(hostname)
 if [[ $- == *i* ]]; then
     red=$(tput setaf 1)
     green=$(tput setaf 2)
