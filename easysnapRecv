@@ -195,8 +195,7 @@ while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remot
                     # Remove local snapshots
                     # Check if snaps is a number
                     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-                        (( snaps >= 0 )) && removeLocalSnapshots
-                        # 0+ means to limit snapshots, so removing is required
+                        (( snaps >= 0 )) && removeLocalSnapshots    # 0+ means to limit snapshots, so removing is required
                         # -1 means infinite amount of snapshots, so no removing
                     fi
                 }
