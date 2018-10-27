@@ -126,7 +126,7 @@ while read -r localDS property value source; do
         (( snaps >= 1 )) && makeSnapshot    # 1+ is a given amount of snapshots, so make one
         # 0 means to remove all snapshots, so don't create a new one
     fi
-done < <(zfs get -H easysnap:${interval} -t filesystem)
+done < <(zfs get -H easysnap:${interval} -t filesystem,volume)
 
 # That's why bookmarking and removal will run after making the snapshots.
 while read -r localDS property value source; do
@@ -139,4 +139,4 @@ while read -r localDS property value source; do
         (( snaps == 0 )) && removeLocalSnapshots                    # 0 means to remove all snapshots, so no bookmark but removing
         (( snaps >= 1 )) && makeBookmark && removeLocalSnapshots    # 1+ means a given amount of snapshots, so make bookmark and removing
     fi
-done < <(zfs get -H easysnap:${interval} -t filesystem)
+done < <(zfs get -H easysnap:${interval} -t filesystem,volume)
