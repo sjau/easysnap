@@ -1,4 +1,4 @@
-#!/usr/bin/env bash                                                                                                                                                                                                          
+#!/usr/bin/env bash
 
 #------------------------------------------------------------------------------#
 #                                                                              #
@@ -55,7 +55,18 @@ makeBookmark() {
 }
 
 makeSnapshot() {
+    [[ "${dbs}" == *"m"* ]] && mariaDBLock
     zfs snapshot "${localDS}@${now}" || _Info "Couldn't create snapshot on ${localDS}";
+        [[ "${dbs}" == *"m"* ]] && mariaDBUnlock
+
+}
+
+mariaDBLock() {
+    mysql -e "FLUSH LOGS; FLUSH TABLES WITH READ LOCK;" || _Info "Couldn't lock MySQL/MariaDB on ${localDS}"
+}
+
+mariaDBUnlock() {
+    mysql -e "UNLOCK TABLES;" || _Info "Couldn't unlock MySQL/MariaDB on ${localDS}"
 }
 
 removeLocalSnapshots() {
@@ -116,7 +127,7 @@ now=$(date "+%s_easysnap-${interval}_%Y-%m-%d_%Hh%M-%Z")
 # We want to get the snapshot as close to the designated time as possible, so we first just make the snapshots
 while read -r localDS property value source; do
     # Split the value into number of snapshots and minimal free space
-    IFS=: read -r snaps reqFreeG <<<${value}
+    IFS=: read -r snaps reqFreeG dbs <<<${value}
     # Put the dataset name into and min. free space into an array for checking free size at the end of the runtime.
     (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
     # Check if snaps is a number
