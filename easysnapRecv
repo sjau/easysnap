@@ -73,7 +73,7 @@ getLatestLocalSnapshot() {
 }
 
 getLatestRemoteSnapshot() {
-    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s name -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -1")
+    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s name -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
     latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
 }
 
@@ -97,7 +97,7 @@ loadKey() {
 removeLocalSnapshots() {
     getNumberOfSnapshots
     while (( curSnaps > snaps )); do
-        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${interval}" | head -1 )
+        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${interval}" | head -n 1 )
         zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
         getNumberOfSnapshots
     done
