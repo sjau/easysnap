@@ -97,7 +97,7 @@ loadKey() {
 removeLocalSnapshots() {
     getNumberOfSnapshots
     while (( curSnaps > snaps )); do
-        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep "easysnap-${interval}" | head -n 1 )
+        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep -m 1 "easysnap-${interval}" )
         zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
         getNumberOfSnapshots
     done
