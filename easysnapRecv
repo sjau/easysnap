@@ -176,7 +176,7 @@ while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remot
         # Load the key
         loadKey || ( _Info "Couldn't load key for ${keyDS}" && continue )
 
-        # Put the dataset name into and min. free space into an array for checking free size at the end of the runtime.
+        # Put the dataset name and min. free space into an array for checking free size at the end of the runtime.
         (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
 
         # Check if remote is reachable
@@ -211,7 +211,7 @@ while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remot
 
         # Check if snaps is a number and remove surplus snapshots
         if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-            (( snaps == -1 ))                            # -1 means to keep infitine snapshots, so do nothing
+            (( snaps == -1 ))                            # -1 means to keep infinite snapshots, so do nothing
             (( snaps == 0 )) && removeLocalSnapshots     # 0 means to remove all snapshots
             (( snaps >= 1 )) && removeLocalSnapshots     # 1+ means a given amount of snapshots, remove surplus snapshots
         fi

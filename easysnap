@@ -128,7 +128,7 @@ now=$(date "+%s_easysnap-${interval}_%Y-%m-%d_%Hh%M-%Z")
 while read -r localDS property value source; do
     # Split the value into number of snapshots and minimal free space
     IFS=: read -r snaps reqFreeG dbs <<<${value}
-    # Put the dataset name into and min. free space into an array for checking free size at the end of the runtime.
+    # Put the dataset name and min. free space into an array for checking free size at the end of the runtime.
     (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
     # Check if snaps is a number
     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
@@ -139,7 +139,7 @@ while read -r localDS property value source; do
     fi
 done < <(zfs get -H easysnap:${interval} -t filesystem,volume)
 
-# That's why bookmarking and removal will run after making the snapshots.
+# Run the bookmarking and removal routines after making the snapshots.
 while read -r localDS property value source; do
     # Splite the value into number of snapshots and minim free space
     IFS=: read -r snaps reqFreeG <<<${value}
