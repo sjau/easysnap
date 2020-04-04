@@ -77,10 +77,6 @@ getLatestRemoteSnapshot() {
     latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
 }
 
-getNumberOfSnapshots() {
-    curSnaps=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | grep "easysnap-${interval}" | wc -l)
-}
-
 importPool() {
     zpool import "${localPool}" || return $?
 }
@@ -95,11 +91,12 @@ loadKey() {
 }
 
 removeLocalSnapshots() {
-    getNumberOfSnapshots
-    while (( curSnaps > snaps )); do
-        oldestSnap=$(zfs list -H -t snapshot -o name -s name -d1 "${localDS}"  | grep -m 1 "easysnap-${interval}" )
-        zfs destroy "${oldestSnap}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
-        getNumberOfSnapshots
+    snapsArr=( $(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | tac | grep "easysnap-${interval}") )
+    while [[ ${#snapsArr[@]} -gt ${snaps} ]]; do
+        curElements=${#snapsArr[@]}
+        lastElement=$(( curElements - 1))
+        zfs destroy "${snapsArr[$lastElement]}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
+        unset 'snapsArr[lastElement]'
     done
 }
 
