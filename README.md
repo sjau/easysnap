@@ -31,14 +31,14 @@ easysnap is a simple bash script which will take snapshots of designated dataset
 Snapshots taken with easysnap look like this:
 
 ```
-pool/path/to/DS@1540490401_easysnap-hourly_2018-10-25_20h00-CEST
-pool/path/to/DS@1540490401_easysnap-frequent_2018-10-25_20h00-CEST
+pool/path/to/DS@2018-10-25_20h00-CEST_easysnap-hourly_1540490401
+pool/path/to/DS@2018-10-25_20h00-CEST_easysnap-frequent_1540490401
 
 ```
 
-* For sorting order the first part `1540490401` is the unix timestamp. This will ensure, that we don't end up with two snapshots with the same name.
+* For sorting order and easy readability the first part contans the date and time in `YYYY-MM-DD_HHhMM-TZ` format.
 * The second part is the `easysnap-interval`, so that we can make sure we only add/delete snapshots of the supplied interval.
-* The last part is date / time provided incl. timezone `2018-10-25_20h00-CEST` for easier understanding of when a snapshot was actually taken.
+* The last part is the unix timestamp `1540490401`. This will ensure, that we don't end up with two snapshots with the same name even if there are two snapshots taken at the same minute.
 
 
 ## esaysnapRecv
