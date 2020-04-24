@@ -31,15 +31,51 @@ easysnap is a simple bash script which will take snapshots of designated dataset
 Snapshots taken with easysnap look like this:
 
 ```
-pool/path/to/DS@2018-10-25_20h00-CEST_easysnap-hourly_1540490401
-pool/path/to/DS@2018-10-25_20h00-CEST_easysnap-frequent_1540490401
+pool/path/to/DS@2018-10-25_20h00_UTC_easysnap-hourly
+pool/path/to/DS@2018-10-25_20h00_UTC_easysnap-frequent
 
 ```
 
-* For sorting order and easy readability the first part contans the date and time in `YYYY-MM-DD_HHhMM-TZ` format.
+* For sorting order and easy readability the first part contans the date and time in `YYYY-MM-DD_HHhMM` format. It will use UTC instead of your custom timezone and adjust the date values accordingly.
 * The second part is the `easysnap-interval`, so that we can make sure we only add/delete snapshots of the supplied interval.
-* The last part is the unix timestamp `1540490401`. This will ensure, that we don't end up with two snapshots with the same name even if there are two snapshots taken at the same minute.
 
+### Samba Shadow Copy2
+
+The above chosen format of the snapshots can be used in conjunction with [samba's shadow_copy2](https://www.samba.org/samba/docs/current/man-html/vfs_shadow_copy2.8.html) functionality. The following can be used on a share to enable it:
+
+```
+vfs objects = shadow_copy2
+shadow: snapdir = .zfs/snapshot
+shadow: sort = desc
+shadow: format = %Y-%m-%d_%Hh%M_UTC_easysnap-{interval}
+shadow: localtime = yes
+```
+
+Replace `{interval}` with your desired interval designation.
+
+Existing easysnap snapshots can be renamed using the following script:
+
+```
+#!/usr/bin/env bash
+
+ds="pool/path/to/dataset"
+mount="/path/to/mountpoint"
+
+for f in ${mount}/.zfs/snapshot/*easysnap* ; do
+        f="${f##*/}"
+        timestamp="${f##*_}"
+        re='^[0-9]+$'
+        if ! [[ ${timestamp} =~ ${re} ]] ; then
+            printf '%s\n' "Couldn't convert snapshot ${f}"
+        else
+            fnew=$(date -u --date=@$timestamp +%Y-%m-%d_%Hh%M_UTC_easysnap-hourly);
+            printf '%s -> %s\n' "${f}" "${fnew}"
+#            zfs rename ${ds}@${f} ${ds}@${fnew}
+        fi
+done
+```
+
+Adjust the dataset and mountpoint variable to your system and run it. It will only convert existing `easysnap` snapshots - others will be left untouched. You'll get an output of which snapshot is transformed into what. Once you verified that it works ok, uncomment the line with `zfs rename`
 
 ## esaysnapRecv
 
