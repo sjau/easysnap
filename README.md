@@ -53,6 +53,17 @@ shadow: localtime = yes
 
 Replace `{interval}` with your desired interval designation.
 
+If you don't want to show only from one set of intervals but include all intervals, you can use something like this:
+
+```
+"vfs objects" = "shadow_copy2";
+"shadow:snapdir" = ".zfs/snapshot";
+"shadow:sort" = "desc";
+"shadow:format" = "%Y-%m-%d-%H-%M-UTC_";
+"shadow:snapprefix" = "^";
+"shadow:delimiter" = "";
+```
+
 Existing easysnap snapshots can be renamed using the following script:
 
 ```
@@ -68,7 +79,7 @@ for f in ${mount}/.zfs/snapshot/*easysnap* ; do
         if ! [[ ${timestamp} =~ ${re} ]] ; then
             printf '%s\n' "Couldn't convert snapshot ${f}"
         else
-            fnew=$(date -u --date=@$timestamp +%Y-%m-%d_%Hh%M_UTC_easysnap-hourly);
+            fnew=$(date -u --date=@$timestamp +%Y-%m-%d-%H-%M-UTC_easysnap-hourly);
             printf '%s -> %s\n' "${f}" "${fnew}"
 #            zfs rename ${ds}@${f} ${ds}@${fnew}
         fi
