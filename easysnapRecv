@@ -68,12 +68,12 @@ freeSpaceCheck() {
 }
 
 getLatestLocalSnapshot() {
-    latestSnapshot=$(zfs list -H -t snapshot -o name -s name -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
+    latestSnapshot=$(zfs list -H -t snapshot -o name -s creation -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
     latestSnapshot="${latestSnapshot##*@}"
 }
 
 getLatestRemoteSnapshot() {
-    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s name -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
+    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s creation -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
     latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
 }
 
@@ -91,7 +91,7 @@ loadKey() {
 }
 
 removeLocalSnapshots() {
-    snapsArr=( $(zfs list -H -t snapshot -o name -s name -d1 "${localDS}" | tac | grep "easysnap-${interval}") )
+    snapsArr=( $(zfs list -H -t snapshot -o name -s creation -d1 "${localDS}" | tac | grep "easysnap-${interval}") )
     while [[ ${#snapsArr[@]} -gt ${snaps} ]]; do
         curElements=${#snapsArr[@]}
         lastElement=$(( curElements - 1))
