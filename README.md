@@ -31,8 +31,8 @@ easysnap is a simple bash script which will take snapshots of designated dataset
 Snapshots taken with easysnap look like this:
 
 ```
-pool/path/to/DS@2018-10-25_20h00_UTC_easysnap-hourly
-pool/path/to/DS@2018-10-25_20h00_UTC_easysnap-frequent
+pool/path/to/DS@easysnap-hourly_2018-10-25-20-00-UTC
+pool/path/to/DS@easysnap-frequent_2018-10-25-20-00-UTC
 
 ```
 
@@ -45,24 +45,27 @@ The above chosen format of the snapshots can be used in conjunction with [samba'
 
 ```
 vfs objects = shadow_copy2
-shadow: snapdir = .zfs/snapshot
-shadow: sort = desc
-shadow: format = %Y-%m-%d_%Hh%M_UTC_easysnap-{interval}
+shadow:snapdir = .zfs/snapshot
+shadow:sort = desc
+shadow:format = _%Y-%m-%d-%H-%M-UTC
+shadow:snapprefix = ^easysnap-\(frequent\)\{0,1\}\(hourly\)\{0,1\}\(daily\)\{0,1\}\(monthly\)\{0,1\}
+shadow:delimiter = _
 shadow: localtime = yes
 ```
 
-Replace `{interval}` with your desired interval designation.
-
-If you don't want to show only from one set of intervals but include all intervals, you can use something like this:
+In NixOS use:
 
 ```
-"vfs objects" = "shadow_copy2";
-"shadow:snapdir" = ".zfs/snapshot";
-"shadow:sort" = "desc";
-"shadow:format" = "%Y-%m-%d-%H-%M-UTC_";
-"shadow:snapprefix" = "^";
-"shadow:delimiter" = "";
+    "vfs objects" = "shadow_copy2";
+    "shadow:snapdir" = ".zfs/snapshot";
+    "shadow:sort" = "desc";
+    "shadow:format" = "_%Y-%m-%d-%H-%M-UTC";
+    "shadow:snapprefix" = "^easysnap-\\(frequent\\)\\{0,1\\}\\(hourly\\)\\{0,1\\}\\(daily\\)\\{0,1\\}\\(monthly\\)\\{0,1\\}";
+    "shadow:delimiter" = "_";
+    "shadow:localtime" = "yes";
 ```
+
+If you have defined different interval names than `frequent`, `hourly`, `daily` or `monthly` then adjust the `shadow:snapprefix` accordingly. If you only want to show old versions from `daily` snapshots, adjust the prefix accordingly.
 
 Existing easysnap snapshots can be renamed using the following script:
 
@@ -79,7 +82,7 @@ for f in ${mount}/.zfs/snapshot/*easysnap* ; do
         if ! [[ ${timestamp} =~ ${re} ]] ; then
             printf '%s\n' "Couldn't convert snapshot ${f}"
         else
-            fnew=$(date -u --date=@$timestamp +%Y-%m-%d-%H-%M-UTC_easysnap-hourly);
+            fnew=$(date -u --date=@$timestamp +easysnap_hourly_%Y-%m-%d-%H-%M-UTC);
             printf '%s -> %s\n' "${f}" "${fnew}"
 #            zfs rename ${ds}@${f} ${ds}@${fnew}
         fi
