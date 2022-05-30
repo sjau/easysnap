@@ -68,13 +68,37 @@ freeSpaceCheck() {
 }
 
 getLatestLocalSnapshot() {
-    latestSnapshot=$(zfs list -H -t snapshot -o name -s creation -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
-    latestSnapshot="${latestSnapshot##*@}"
+    unset fileLog
+    easysnapDir="/var/tmp/easysnap"
+    [[ -d "${easysnapDir}" ]] || mkdir "${easysnapDir}"
+    fileDS="${localDS//\//,}"
+    fileLog=$(<"${easysnapDir}/easysnapRecv_${fileDS}")
+    if [[ ${fileLog} = *"easysnap"* ]]; then
+        latestSnapshot="${fileLog}"
+    else
+        latestSnapshot=$(zfs list -H -t snapshot -o name -s creation -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
+        latestSnapshot="${latestSnapshot##*@}"
+    fi
 }
 
 getLatestRemoteSnapshot() {
-    latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s creation -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
-    latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
+    unset fileLog
+    easysnapDir="/var/tmp/easysnap"
+    fileDS="${remoteDS//\//,}"
+    fileLog=$(ssh "${remoteHost}" "cat ${easysnapDir}/easysnap_${fileDS}");
+    if [[ $fileLog == *"easysnap"* ]]; then
+        latestRemoteSnapshot="${fileLog}"
+    else
+        latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s creation -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
+        latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
+    fi
+}
+
+makeFileLog() {
+    easysnapDir="/var/tmp/easysnap"
+    [[ -d "${easysnapDir}" ]] || mkdir "${easysnapDir}"
+    fileDS="${localDS//\//,}"
+    printf '%s' "${latestRemoteSnapshot}" > "${easysnapDir}/easysnapRecv_${fileDS}"
 }
 
 importPool() {
@@ -186,14 +210,14 @@ while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remot
         zfs get name ${localDS}  > /dev/null 2>&1 && recvMode="incremental" || recvMode="full"
         case "${recvMode}" in
             "full")
-                sendDataset || _Error "Couldn't send/receive dataset"
+                sendDataset && makeFileLog || _Error "Couldn't send/receive dataset"
                 ;;
             "incremental")
                 {
                     # Get latest local snapshot
                     getLatestLocalSnapshot || ( _Info "Couldn't get latest local snapshot for ${localDS}" && continue )
                     # Send/Receive Snapshot from Remote to Local
-                    sendSnapshot || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
+                    sendSnapshot && makeFileLog || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
                     # Remove local snapshots
                     # Check if snaps is a number
                     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then

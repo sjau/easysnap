@@ -52,9 +52,15 @@ makeBookmark() {
 
 makeSnapshot() {
     [[ "${dbs}" == *"m"* ]] && mariaDBLock
-    zfs snapshot "${localDS}@${now}" || _Info "Couldn't create snapshot on ${localDS}";
-        [[ "${dbs}" == *"m"* ]] && mariaDBUnlock
+    zfs snapshot "${localDS}@${now}" && makeFilelog || _Info "Couldn't create snapshot on ${localDS}";
+    [[ "${dbs}" == *"m"* ]] && mariaDBUnlock
+}
 
+makeFilelog() {
+    easysnapDir="/var/tmp/easysnap"
+    [[ -d "${easysnapDir}" ]] || mkdir "${easysnapDir}"
+    fileDS="${localDS//\//,}"
+    printf '%s' "${now}" > "${easysnapDir}/easysnap_${fileDS}"
 }
 
 mariaDBLock() {
