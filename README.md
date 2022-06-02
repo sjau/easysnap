@@ -97,8 +97,8 @@ easysnapRecv is a simple bash script which will zfs send/receive datasets or inc
 
 ### How to use
 
-1. You need to make a configuration file in `/etc/easysnap/` named like `easysnap.frequent`, `easysnap.hourly` etc. It must correspondent with the easysnap interval name chosen.
-1. The config has the following format: `localDS,keyDS,raw,intermediary,exportPool,remoteHost,remoteDS,snaps,reqFreeG`
+1. You need to make a configuration file in `/etc/easysnap/` named it `easysnapRecv`
+1. The config has the following format: `localDS;keyDS;raw;intermediary;exportPool;remoteHost;remoteDS,reqFreeG;snapsXX`
    * `localDS`: The path to the local dataset that shall be used, e.g. `tank/path/to/Backups/xxx`. __Notice:__ If the local dataset does not exist, it will be created and it will just have the latest snapshot. If you want to have also previous intermediary snapshots, then you should first make a zfs send/recv starting from the snapshot you want.
    * `keyDS`: In case you make use of encryption, you will need to provide the path to the dataset that holds the encryption key. Because of inheritance, child datasets of an encrypted dataset will also be encrypted, but you'll need to provide the key just to the parent dataset with the original encryption. In my case I just do for all my encrypted zfs the following: `tankXXX/encZFS` and then I create child datasets like `tankXXX/encZFS/Nixos` -> so the value to provide would be `tankXXX/encZFS`. If your local dataset has no encryption, just leave this empty.
    * `raw`: In case the remote dataset that you want to receive is encrypted you can set the raw flag to `y`, then it will be sent in raw mode. This is espeically useful when the receiving machine is untrusted, e.g. features no encryption by default. That way the receiving dataset will still be encrypted.
@@ -106,13 +106,14 @@ easysnapRecv is a simple bash script which will zfs send/receive datasets or inc
    * `exportPool`: Set to `y` if you want to export the pool after receiving is done. This can be useful if you want to make backups onto removable media such as usb thumb drives or external usb drives. Easysnap will automatically try to import the pool for receiving when it's not imported already. The export happens at the very end of routine.
    * `remoteHost`: Provide the remote user and host that shall send the dataset, e.g. `root@myserver.tld` or you can also use like `root@localhost`
    * `remoteDS`: The path to the remote dataset that shall be sent.
-   * `snaps`: The amount of snapshots to keep locally. Remember: This only goes for the selected interval.
+   * `reqFreeG`: Give notice when there's less space than the amount of gigabytes indicated on the pool, e.g. `200` would give a warning when the free space on the pool falls below 200G.
+   * `snapsXX`: Here you define the intervals and the amount of snaps it should keep, e.g. ...;daily:3650;hourly:2160;....:99. You can add as many snapsXX there as you want. The give example would keep 10 years worth of daily snaps and 90 days worth of hourly snaps. You can also use -1 and 0 for the amount. See below:
       * `-1`: To keep an unlimited amount of snapshots (never delete them).
       * `0`: To delete all snapshots but still receive current/incremental data.
       * `1+`: The amount of snapshots to keep.
-   * `reqFreeG`: Give notice when there's less space than the amount of gigabytes indicated on the pool, e.g. `200` would give a warning when the free space on the pool falls below 200G.
    * __Notice:__ easysnapRecv will by default use the `-F` flag, meaning that it will auto-rollback to the latest snapshot when required.
-1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to. Use as first parameter the interval indicator, e.g. `0 * * * * /path/to/easysnap/easysnapRecv hourly`
+   * Empty lines and lines starting with # are ignored
+1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to.
 
 ## ToDo
 
