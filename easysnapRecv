@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+#set -x
+
 #------------------------------------------------------------------------------#
 #                                                                              #
 #                              BELOW BE DRAGONS                                #
@@ -23,14 +25,14 @@ _Error() {
 
 # Check for the config file
 checkConfig() {
-    cfgFile="/etc/easysnap/easysnap.${interval}"
+    cfgFile="/etc/easysnap/easysnapRecv"
     [[ ! -f "${cfgFile}" ]] && _Error "Couldn't find ${cfgFile}. Abort."
 }
 
 # Creating locking
 lock() {
-    exec 200>/run/easysnapRecv-${interval}.lock || _Error "Couldn't acquire lock for easysnapRecv-${interval}. Abort."
-    flock -n 200 || _Error "easysnapRecv-${interval} is already running. Abort."
+    exec 200>/run/easysnapRecv.lock || _Error "Couldn't acquire lock for easysnapRecv. Abort."
+    flock -n 200 || _Error "easysnapRecv is already running. Abort."
 }
 
 # Create cleanup
@@ -72,11 +74,12 @@ getLatestLocalSnapshot() {
     easysnapDir="/var/tmp/easysnap"
     [[ -d "${easysnapDir}" ]] || mkdir "${easysnapDir}"
     fileDS="${localDS//\//,}"
+    touch "${easysnapDir}/easysnapRecv_${fileDS}"
     fileLog=$(<"${easysnapDir}/easysnapRecv_${fileDS}")
-    if [[ ${fileLog} = *"easysnap"* ]]; then
+    if [[ ${fileLog} = *"easysnap"* ]] && [[ $( zfs list -H -o name ${localDS}@${fileLog} &> /dev/null ) ]]; then
         latestSnapshot="${fileLog}"
     else
-        latestSnapshot=$(zfs list -H -t snapshot -o name -s creation -d1 ${localDS} | grep "easysnap-${interval}" | tail -1)
+        latestSnapshot=$(zfs list -H -t snapshot -o name -s creation -d1 ${localDS} | grep "easysnap" | tail -1)
         latestSnapshot="${latestSnapshot##*@}"
     fi
 }
@@ -89,7 +92,7 @@ getLatestRemoteSnapshot() {
     if [[ $fileLog == *"easysnap"* ]]; then
         latestRemoteSnapshot="${fileLog}"
     else
-        latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s creation -d1 ${remoteDS} | grep 'easysnap-${interval}' | tail -n 1")
+        latestRemoteSnapshot=$(ssh "${remoteHost}" "zfs list -H -t snapshot -o name -s creation -d1 ${remoteDS} | grep 'easysnap' | tail -n 1")
         latestRemoteSnapshot="${latestRemoteSnapshot##*@}"
     fi
 }
@@ -157,7 +160,6 @@ fi
 
 
 # Get arguments and create pool name array
-interval="${1}"
 declare -A dsArr
 declare -A poolArr
 
@@ -177,64 +179,82 @@ checkConfig
 
 
 
-# Check if time argument was given, can be frequent, hourly, daily, weekly, monthly or custom.
-[[ -z "${interval}" ]] && _Error "No argument was given. Abort."
-
-
 # Go through the loop for receiving the backups
-while IFS=';' read -r -u "${fd}" localDS keyDS raw intermediary exportPool remoteHost remoteDS snaps reqFreeG; do
-    # Check if first letter of the localDS string is a letter. Pool names can only start with letters.
-    if [[ ${localDS:0:1} =~ [[:alpha:]] ]]; then
-        localPool="${localDS%%/*}"
-        remoteServer="${remoteHost#*@}"
+while IFS=';' read -r -a snapArr -u "${fd}"; do
 
-        # Check if pool has export option set in the config, if so, it will be exported when the script quits.
-        [[ "${exportPool}" = "y" ]] && poolArr["${localPool}"]="${localPool}"
+    if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
 
-        # Import the pool
-        zpool get name ${localPool} > /dev/null 2>&1 || ( importPool || ( _Info "Couldn't import ${localPool}" && continue ) )
+        # Assign the array entries to their variabile and remove
+        localDS="${snapArr[0]}" && unset snapArr[0]
+        keyDS="${snapArr[1]}" && unset snapArr[1]
+        raw="${snapArr[2]}" && unset snapArr[2]
+        intermediary="${snapArr[3]}" && unset snapArr[3]
+        exportPool="${snapArr[4]}" && unset snapArr[4]
+        remoteHost="${snapArr[5]}" && unset snapArr[5]
+        remoteDS="${snapArr[6]}" && unset snapArr[6]
+        reqFreeG="${snapArr[7]}" && unset snapArr[7]
 
-        # Load the key
-        loadKey || ( _Info "Couldn't load key for ${keyDS}" && continue )
+        # Fetch latest snapshots to local
+        # Check if first letter of the localDS string is a letter. Pool names can only start with letters.
+        if [[ ${localDS:0:1} =~ [[:alpha:]] ]]; then
+            localPool="${localDS%%/*}"
+            remoteServer="${remoteHost#*@}"
 
-        # Put the dataset name and min. free space into an array for checking free size at the end of the runtime.
-        (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
+            # Check if pool has export option set in the config, if so, it will be exported when the script quits.
+            [[ "${exportPool}" = "y" ]] && poolArr["${localPool}"]="${localPool}"
 
-        # Check if remote is reachable
-        checkPing || ( _Info "Couldn't ping remote server ${remoteServer}" && continue )
+            # Import the pool
+            zpool get name ${localPool} > /dev/null 2>&1 || ( importPool || ( _Info "Couldn't import ${localPool}" && continue ) )
 
-        # Set some options
-        [[ "${raw}" = "y" ]] && raw="--raw" || raw=""
+            # Load the key
+            loadKey || ( _Info "Couldn't load key for ${keyDS}" && continue )
 
-        # Check if the dataset exists, if so, do incremental update, otherwise receive full dataset
-        zfs get name ${localDS}  > /dev/null 2>&1 && recvMode="incremental" || recvMode="full"
-        case "${recvMode}" in
-            "full")
-                sendDataset && makeFileLog || _Error "Couldn't send/receive dataset"
-                ;;
-            "incremental")
-                {
-                    # Get latest local snapshot
-                    getLatestLocalSnapshot || ( _Info "Couldn't get latest local snapshot for ${localDS}" && continue )
-                    # Send/Receive Snapshot from Remote to Local
-                    sendSnapshot && makeFileLog || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
-                    # Remove local snapshots
-                    # Check if snaps is a number
-                    if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-                        (( snaps >= 0 )) && removeLocalSnapshots    # 0+ means to limit snapshots, so removing is required
-                        # -1 means infinite amount of snapshots, so no removing
-                    fi
-                }
-                ;;
-            *)
-                printf '%s %s\n' "Couldn't determine receiving mode for" ${remoteDS}
-        esac
+            # Put the dataset name and min. free space into an array for checking free size at the end of the runtime.
+            (( reqFreeG > 0 )) && dsArr["${localDS}"]="${reqFreeG}"
 
-        # Check if snaps is a number and remove surplus snapshots
-        if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-            (( snaps == -1 ))                            # -1 means to keep infinite snapshots, so do nothing
-            (( snaps == 0 )) && removeLocalSnapshots     # 0 means to remove all snapshots
-            (( snaps >= 1 )) && removeLocalSnapshots     # 1+ means a given amount of snapshots, remove surplus snapshots
+            # Check if remote is reachable
+            checkPing || ( _Info "Couldn't ping remote server ${remoteServer}" && continue )
+
+            # Set some options
+            [[ "${raw}" = "y" ]] && raw="--raw" || raw=""
+
+            # Check if the dataset exists, if so, do incremental update, otherwise receive full dataset
+            zfs get name ${localDS}  > /dev/null 2>&1 && recvMode="incremental" || recvMode="full"
+            case "${recvMode}" in
+                "full")
+                    sendDataset && makeFileLog || _Error "Couldn't send/receive dataset"
+                    ;;
+                "incremental")
+                    {
+                        # Get latest local snapshot
+                        getLatestLocalSnapshot || ( _Info "Couldn't get latest local snapshot for ${localDS}" && continue )
+                        # Send/Receive Snapshot from Remote to Local
+                        sendSnapshot && makeFileLog || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
+                    }
+                    ;;
+                *)
+                    printf '%s %s\n' "Couldn't determine receiving mode for" ${remoteDS}
+                    ;;
+            esac
         fi
+
+        # Remove surplus local snapshots
+        # Loop through the remaining snap arguments
+        for curSnap in "${snapArr[@]}"; do
+            interval="${curSnap%%:*}"
+            snaps="${curSnap##*:}"
+
+            # Check if snaps is a number and remove surplus snapshots
+            if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
+                (( snaps == -1 ))                            # -1 means to keep infinite snapshots, so do nothing
+                (( snaps == 0 )) && removeLocalSnapshots     # 0 means to remove all snapshots
+                (( snaps >= 1 )) && removeLocalSnapshots     # 1+ means a given amount of snapshots, remove surplus snapshots
+            fi
+        done
+
     fi
-done  {fd}<"/etc/easysnap/easysnap.${interval}"
+
+    # Unset snap array
+    unset  snapArr
+
+done  {fd}<"/etc/easysnap/easysnapRecv"
