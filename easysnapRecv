@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-#set -x
-
 #------------------------------------------------------------------------------#
 #                                                                              #
 #                              BELOW BE DRAGONS                                #
@@ -128,13 +126,11 @@ removeLocalSnapshots() {
 }
 
 sendDataset() {
-    getLatestRemoteSnapshot
     printf "%s\n" "Receiving full dataset: ${remoteDS}@${latestRemoteSnapshot}"
     ssh "${remoteHost}" "zfs send ${raw} ${remoteDS}@${latestRemoteSnapshot}" | zfs receive "${localDS}"
 }
 
 sendSnapshot() {
-    getLatestRemoteSnapshot
     if [[ "${intermediary}" = "y" ]]; then
         { ssh "${remoteHost}" "zfs send ${raw} -I ${remoteDS}@${latestSnapshot} ${remoteDS}@${latestRemoteSnapshot}" | zfs receive -F "${localDS}"; } ||
         { _Info "Couldn't send ${remoteDS} to ${localDS} with intermediary snapshots. Retrying as incremental snapshot" &&
@@ -218,6 +214,9 @@ while IFS=';' read -r -a snapArr -u "${fd}"; do
             # Set some options
             [[ "${raw}" = "y" ]] && raw="--raw" || raw=""
 
+            # Get latest remote snapshot
+            getLatestRemoteSnapshot
+
             # Check if the dataset exists, if so, do incremental update, otherwise receive full dataset
             zfs get name ${localDS}  > /dev/null 2>&1 && recvMode="incremental" || recvMode="full"
             case "${recvMode}" in
@@ -228,8 +227,12 @@ while IFS=';' read -r -a snapArr -u "${fd}"; do
                     {
                         # Get latest local snapshot
                         getLatestLocalSnapshot || ( _Info "Couldn't get latest local snapshot for ${localDS}" && continue )
-                        # Send/Receive Snapshot from Remote to Local
-                        sendSnapshot && makeFileLog || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
+                        if [[ "${latestRemoteSnapshot}" == "${latestSnapshot}" ]]; then
+                            ( _Info "No new snapshot for ${remoteDS} on ${remoteHost} could be found." && continue )
+                        else
+                            # Send/Receive Snapshot from Remote to Local
+                            sendSnapshot && makeFileLog || ( _Info "Couldn't properly receive the snapshot from ${remoteDS}" && continue )
+                        fi
                     }
                     ;;
                 *)
@@ -258,3 +261,4 @@ while IFS=';' read -r -a snapArr -u "${fd}"; do
     unset  snapArr
 
 done  {fd}<"/etc/easysnap/easysnapRecv"
+
