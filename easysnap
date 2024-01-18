@@ -125,7 +125,7 @@ if [[ -z "${interval}" ]]; then
 fi
 
 # Get current time for snapshot
-now=$(date -u "+easysnap-${interval}_%Y-%m-%d-%H-%M-UTC")
+now=$(date -u "+%s-easysnap-${interval}-UTC-%Y-%m-%d-%H-%M")
 
 # We want to get the snapshot as close to the designated time as possible, so we first just make the snapshots
 while read -r localDS property value source; do

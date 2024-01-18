@@ -31,13 +31,13 @@ easysnap is a simple bash script which will take snapshots of designated dataset
 Snapshots taken with easysnap look like this:
 
 ```
-pool/path/to/DS@easysnap-hourly_2018-10-25-20-00-UTC
-pool/path/to/DS@easysnap-frequent_2018-10-25-20-00-UTC
+pool/path/to/DS@UNIXTIMESTAMP-easysnap-hourly-UTC-2018-10-25-20-00
+pool/path/to/DS@UNIXTIMESTAMP-easysnap-frequent-UTC-2018-10-25-20-00
 
 ```
 
-* For sorting order and easy readability the first part contans the date and time in `YYYY-MM-DD_HHhMM` format. It will use UTC instead of your custom timezone and adjust the date values accordingly.
-* The second part is the `easysnap-interval`, so that we can make sure we only add/delete snapshots of the supplied interval.
+* For sorting order and easy readability the first part contains the unix timestamp, followed by the easysnap-interval and it is set to UTC.
+* The second part contains date and time in easy readable format (YYYY-MM-DD-HH-mm).
 
 ### Samba Shadow Copy2
 
@@ -47,25 +47,24 @@ The above chosen format of the snapshots can be used in conjunction with [samba'
 vfs objects = shadow_copy2
 shadow:snapdir = .zfs/snapshot
 shadow:sort = desc
-shadow:format = _%Y-%m-%d-%H-%M-UTC
-shadow:snapprefix = ^easysnap-\(frequent\)\{0,1\}\(hourly\)\{0,1\}\(daily\)\{0,1\}\(monthly\)\{0,1\}
-shadow:delimiter = _
-shadow: localtime = yes
+shadow:format = -%Y-%m-%d-%H-%M
+shadow:snapprefix = .*
+shadow:delimiter = -20
+shadow:localtime = yes
 ```
 
-In NixOS use:
+In NixOS use the above globally in the .extraConfig= '' ... '' or in individual shares like:
 
 ```
     "vfs objects" = "shadow_copy2";
     "shadow:snapdir" = ".zfs/snapshot";
     "shadow:sort" = "desc";
-    "shadow:format" = "_%Y-%m-%d-%H-%M-UTC";
-    "shadow:snapprefix" = "^easysnap-\\(frequent\\)\\{0,1\\}\\(hourly\\)\\{0,1\\}\\(daily\\)\\{0,1\\}\\(monthly\\)\\{0,1\\}";
-    "shadow:delimiter" = "_";
+    "shadow:format" = "-%Y-%m-%d-%H-%M";
+    "shadow:snapprefix" = ".*";
+    "shadow:delimiter" = "-20";
     "shadow:localtime" = "yes";
 ```
 
-If you have defined different interval names than `frequent`, `hourly`, `daily` or `monthly` then adjust the `shadow:snapprefix` accordingly. If you only want to show old versions from `daily` snapshots, adjust the prefix accordingly.
 
 Existing easysnap snapshots can be renamed using the following script:
 
@@ -77,15 +76,20 @@ mount="/path/to/mountpoint"
 
 for f in ${mount}/.zfs/snapshot/*easysnap* ; do
         f="${f##*/}"
-        timestamp="${f##*_}"
-        re='^[0-9]+$'
-        if ! [[ ${timestamp} =~ ${re} ]] ; then
-            printf '%s\n' "Couldn't convert snapshot ${f}"
-        else
-            fnew=$(date -u --date=@$timestamp +easysnap_hourly_%Y-%m-%d-%H-%M-UTC);
+    if [[ ${f} == easysnap* ]]; then
+        es="${f%%_*}"       # Get easysnap-{interval} substring
+        gd="${f##*_}"       # Get the date / time substring
+        # Parse the date / time substring
+        while IFS="-" read -r year month day hour minute tz; do
+            td="${year}-${month}-${day} ${hour}:${minute}:00 UTC"
+            ts=$(date -d "${td}" +%s)       # Make timestamp
+
+            # Make new format string
+            fnew="${ts}-${es}-UTC-${year}-${month}-${day}-${hour}-${minute}"
             printf '%s -> %s\n' "${f}" "${fnew}"
 #            zfs rename ${ds}@${f} ${ds}@${fnew}
-        fi
+        done <<< "${gd}"
+    fi
 done
 ```
 
