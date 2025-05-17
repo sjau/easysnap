@@ -4,6 +4,8 @@ A little zfs snapshot tool including backup script. The tool consists of two scr
 
 * easysnap: It will zfs snapshots and remove old ones if necessary. No configuration file needed as all required information is in the dataset's user properties.
 * easysnapRecv: It will allow to pull snapshots made by easysnap from other servers. A configuration file is needed.
+* easysnapRm: This will remove surplus snapshots.
+* easysnapList: This will list all datasets that have easysnap:xxx property set or are found in the easysnapRecv configuration file
 
 ## easysnap
 
@@ -25,6 +27,7 @@ easysnap is a simple bash script which will take snapshots of designated dataset
       * `:200` is optional and it indicates that easysnap will print a notice when there's less than 200GB free space on the pool.
       * `:m` is optional and it indicates that MySQL/MariaDB tables should be locked before the snapshot and unlocked after the snapshot. If MySQL/MariaDB is started with privileges, you'll also need to create a `.my.cnf` file in the user's home under which the script is run, e.g. `/root/.my.cnf`, so that it reads out username and password from that file, see [.my.cnf.example](.my.cnf.example). If you don't want to be warned about remaining space, you can also just set the value like `240::m`.
 1. When you have setup at least one dataset, you will need to add a cronjob or systemd timer to actually run the easysnap script with the interval that it should run. E.g. if you setup `easysnap:hourly` you could add a cron like `0 * * * * /path/to/easysnap hourly`. The parameter provided to the easysnap script (in this case `hourly`) must match the desired user property in the dataset `easysnap:hourly`. You can also run the script manually whenever you want, just call it like `./easysnap hourly`. In the [cron.example](cron.example) file you have examples for the common snapshot intervals.
+1. Also set a cron or systemd timer to run the easysnapRm script periodically to remove surplus snapshots from the datasets. Maybe once or twice a day should be sufficient.
 
 ### Format of the snapshots
 
@@ -118,6 +121,22 @@ easysnapRecv is a simple bash script which will zfs send/receive datasets or inc
    * __Notice:__ easysnapRecv will by default use the `-F` flag, meaning that it will auto-rollback to the latest snapshot when required.
    * Empty lines and lines starting with # are ignored
 1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to.
+
+## esaysnapRm
+
+easysnapRM is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present) and it will then remove surplus snapshots based on the limits provided.
+
+### How to use
+
+1. Just set a cron or systemd timer to run the script once or twice a day. No further configuration is needed.
+
+## easysnapList
+
+easysnapList is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present). It prints a list of found dataset incl. how many snapshots it should keep.
+
+### How to use
+
+1. Just run the script from the terminal. No configuration necessary and it will not delete any snapshots.
 
 ## ToDo
 

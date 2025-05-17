@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+
+#------------------------------------------------------------------------------#
+#                                                                              #
+#                              BELOW BE DRAGONS                                #
+#                                                                              #
+#------------------------------------------------------------------------------#
+
+# Set the colors on the messages
+_Info() {
+    printf '%sInfo:%s %s\n%s\n' "${yellow}" "${reset}" "${1}" "on ${hostName}"
+}
+_Success() {
+    printf '%sSuccess:%s %s\n%s\n' "${green}" "${reset}" "${1}" "on ${hostName}"
+}
+_Error() {
+    printf '%sError:%s %s\n%s\n' "${red}" "${reset}" "${1}" "on ${hostName}"
+    exit 1
+}
+
+# Create Temporary Directory to store some stuff
+createTmpDir() {
+    # Create temporary dir
+    tmpDir='easysnapRm.XXXXXXXXXX';
+    tmpStorage=$(mktemp -t -d "${tmpDir}") || _Error "Couldn't create temporary dir"
+}
+
+# Create cleanup
+cleanup() {
+    # Remove TmpDir
+    rm -rf "${tmpStorage}"
+    # Check free space
+    freeSpaceCheck || _Info "Couldn't check free space."
+}
+
+# Creating locking
+lock() {
+    exec 9>/run/easysnapRm.lock || _Error "Couldn't acquire lock for easysnapRm. Abort."
+    flock -n 9 || _Error "easysnapRm is already running. Abort."
+}
+
+
+freeSpaceCheck() {
+    for curDS in "${!dsArr[@]}"; do
+        reqFreeG=${dsArr[${curDS}]}
+        reqFree=$((reqFreeG * 1024 * 1024 * 1024))
+        curFree=$(zfs list -H -p -o avail "${curDS}")
+        if (( curFree < reqFree )); then
+            curFreeG=$((curFree / 1024 / 1024 / 1024))
+            _Info "${curDS}: Free space is below ${reqFreeG}G at ${curFreeG}G"
+        fi
+    done
+}
+
+# Do some stuff first before actually working
+# Get hostname for info/error messages
+hostName=$(hostname)
+# Check if stdout is a tty
+if [[ -t 1 ]]; then
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    yellow=$(tput setaf 3)
+    reset=$(tput sgr0)
+fi
+# Check if script runs as root
+if [[ ${EUID} -ne 0 ]]; then
+    _Error "Please run as root. Abort."
+fi
+#Check for lock
+lock || _Error "Couldn't check for the file lock. Abort."
+# Trap the cleanup
+trap cleanup EXIT
+# Create Temp dir
+createTmpDir
+
+
+# Get all easysnaps from the zfs properties
+while read -r localDS source; do
+    zfs get all "${localDS}" | grep easysnap >> "${tmpStorage}/zfsProperties"
+done < <(zfs list -H -o name)
+# Get all the easysnap properties and split them into usable bits
+while read -r localDS snapName snapProp inherit; do
+    pool="${localDS%%/*}"
+    interval="${snapName#*:}"
+    snaps="${snapProp%:*}"
+    if [[ ${snapProp} == *":"* ]]; then
+        reqFreeG="${snapProp##*:}"
+    else
+        reqFreeG=""
+    fi
+    # Snaps of -1 means keep infitine snapshots, so those don't need to be added.
+    if [[ ${snaps} -ge 0 ]]; then
+        printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
+    fi
+done < "${tmpStorage}/zfsProperties"
+
+
+# Check if easysnapRecv config exists
+if [[ -f "/etc/easysnap/easysnapRecv" ]]; then
+    # Read all the data from the easysnapRecv config
+    while IFS=';' read -r -a snapArr; do
+	    # Filter out empty lines or commented lines
+        if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
+            # Assign the array entries to their variable and remove
+            localDS="${snapArr[0]}" && unset snapArr[0]
+            keyDS="${snapArr[1]}" && unset snapArr[1]
+            raw="${snapArr[2]}" && unset snapArr[2]
+            intermediary="${snapArr[3]}" && unset snapArr[3]
+            exportPool="${snapArr[4]}" && unset snapArr[4]
+            remoteHost="${snapArr[5]}" && unset snapArr[5]
+            remoteDS="${snapArr[6]}" && unset snapArr[6]
+            reqFreeG="${snapArr[7]}" && unset snapArr[7]
+            pool="${localDS%%/*}"
+            # Loop through the remaining snap arguments
+            for curSnap in "${snapArr[@]}"; do
+                interval="${curSnap%%:*}"
+                snaps="${curSnap##*:}"
+                # Check if snaps is a number, if so add to cullSnaps file
+                if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
+                    # Snaps of -1 means keep infitine snapshots, so those don't need to be added.
+                    if [[ ${snaps} -ge 0 ]]; then
+                        printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
+                    fi
+                fi
+            done
+        fi
+        # Unset snap array
+        unset  snapArr
+    done < "/etc/easysnap/easysnapRecv"
+fi
+
+
+# Loop through the cullSnaps file
+while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
+    # Import pool if it is exported
+    poolCheck=$(zpool list -H -o name | grep -Fx "${pool}");
+    if [[ ! ${pool} == ${poolCheck} ]]; then
+        zpool import "${pool}" || return $?
+    fi
+    # Get all snapshots from localDS
+    dsName="${localDS//\//_}"
+    # Check if already all snaps were stored to temporary file
+    if [[ ! -f "${tmpStorage}/${dsName}" ]]; then
+        zfs list -t snapshot -H -o name -S creation ${localDS} > "${tmpStorage}/${dsName}"
+    fi
+    # Get all current insterval snapshots
+    grep ${interval} "${tmpStorage}/${dsName}" > "${tmpStorage}/curSnaps"
+    i=1
+    while read -u ${fe} line; do
+        printf '%s\n' "zfs destroy ${localDS} - ${interval} - ${i} of ${snaps}"
+        if [[ ${i} -gt ${snaps} ]]; then
+            zfs destroy "${line}"
+			# Sleep 1 second after destroying a snapshot - running it too quickly can cause zfs to lock
+            sleep 1
+        else
+            ((i++))
+        fi
+    done {fe}< "${tmpStorage}/curSnaps"
+done {fd}< "${tmpStorage}/cullSnaps"

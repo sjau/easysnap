@@ -8,3 +8,5 @@
 0 0 * * 1       /usr/local/bin/easysnap weekly
 # Monthly snapshots - run on the first day of the month
 0 0 1 * *       /usr/local/bin/easysnap monthly
+# Remove snapshots once every day - run 15 minutes past midnight
+15 * * * *		/usr/local7bin/easysnapRm

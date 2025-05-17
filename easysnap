@@ -19,7 +19,6 @@ _Error() {
 }
 
 
-
 # Create cleanup
 cleanup() {
     # Check free space
@@ -28,8 +27,8 @@ cleanup() {
 
 # Creating locking
 lock() {
-    exec 200>/run/easysnap-${interval}.lock || _Error "Couldn't acquire lock for easysnap-${interval}. Abort."
-    flock -n 200 || _Error "easysnap-${interval} is already running. Abort."
+    exec 9>/run/easysnap-${interval}.lock || _Error "Couldn't acquire lock for easysnap-${interval}. Abort."
+    flock -n 9 || _Error "easysnap-${interval} is already running. Abort."
 }
 
 
@@ -46,14 +45,12 @@ freeSpaceCheck() {
     done
 }
 
-makeBookmark() {
-    zfs bookmark "${localDS}@${now}" "${localDS}#${now}" || _Info "Couldn't create bookmark on ${localDS}"
-}
-
 makeSnapshot() {
     [[ "${dbs}" == *"m"* ]] && mariaDBLock
     zfs snapshot "${localDS}@${now}" && makeFilelog || _Info "Couldn't create snapshot on ${localDS}";
     [[ "${dbs}" == *"m"* ]] && mariaDBUnlock
+	# Add also a bookmark
+    zfs bookmark "${localDS}@${now}" "${localDS}#${now}" || _Info "Couldn't create bookmark on ${localDS}"
 }
 
 makeFilelog() {
@@ -71,20 +68,6 @@ mariaDBUnlock() {
     mysql -e "UNLOCK TABLES;" || _Info "Couldn't unlock MySQL/MariaDB on ${localDS}"
 }
 
-removeLocalSnapshots() {
-    snapsArr=( $(zfs list -H -t snapshot -o name -S creation -d1 "${localDS}" | grep "easysnap-${interval}") )
-    while [[ ${#snapsArr[@]} -gt ${snaps} ]]; do
-        curElements=${#snapsArr[@]}
-        lastElement=$(( curElements - 1))
-        zfs destroy "${snapsArr[$lastElement]}" || ( _Info "Couldn't remove old snapshots on ${localDS}. Please check manually"; break; )
-        unset 'snapsArr[lastElement]'
-    done
-}
-
-
-
-
-
 
 # Do some stuff first before actually working
 # Get hostname for info/error messages
@@ -97,12 +80,9 @@ if [[ -t 1 ]]; then
     reset=$(tput sgr0)
 fi
 
-
-
 # Get arguments and create pool name array
 interval="${1}"
 declare -A dsArr
-
 
 
 # Check if script runs as root
@@ -111,18 +91,17 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 
-
 #Check for lock
 lock || _Error "Couldn't check for the file lock. Abort."
 # Trap the cleanup
 trap cleanup EXIT
 
 
-
 # Check if time argument was given, can be frequent, hourly, daily, weekly, monthly or custom.
 if [[ -z "${interval}" ]]; then
     _Error "No argument was given. Abort."
 fi
+
 
 # Get current time for snapshot
 now=$(date -u "+%s-easysnap-${interval}-UTC-%Y-%m-%d-%H-%M")
@@ -139,18 +118,5 @@ while read -r localDS property value source; do
         (( snaps == -1 )) && makeSnapshot   # -1 is infinite snapshots, so make one
         (( snaps >= 1 )) && makeSnapshot    # 1+ is a given amount of snapshots, so make one
         # 0 means to remove all snapshots, so don't create a new one
-    fi
-done < <(zfs get -H easysnap:${interval} -t filesystem,volume)
-
-# Run the bookmarking and removal routines after making the snapshots.
-while read -r localDS property value source; do
-    # Splite the value into number of snapshots and minim free space
-    IFS=: read -r snaps reqFreeG <<<${value}
-    # Check if snaps is a number
-    if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-        # Take action according to snaps limit
-        (( snaps == -1 )) && makeBookmark                           # -1 means to take infitine snapshots, so bookmark is required but no removing
-        (( snaps == 0 )) && removeLocalSnapshots                    # 0 means to remove all snapshots, so no bookmark but removing
-        (( snaps >= 1 )) && makeBookmark && removeLocalSnapshots    # 1+ means a given amount of snapshots, so make bookmark and removing
     fi
 done < <(zfs get -H easysnap:${interval} -t filesystem,volume)

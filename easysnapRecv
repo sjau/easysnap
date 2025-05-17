@@ -19,8 +19,6 @@ _Error() {
 }
 
 
-
-
 # Check for the config file
 checkConfig() {
     cfgFile="/etc/easysnap/easysnapRecv"
@@ -29,8 +27,8 @@ checkConfig() {
 
 # Creating locking
 lock() {
-    exec 200>/run/easysnapRecv.lock || _Error "Couldn't acquire lock for easysnapRecv. Abort."
-    flock -n 200 || _Error "easysnapRecv is already running. Abort."
+    exec 9>/run/easysnapRecv.lock || _Error "Couldn't acquire lock for easysnapRecv. Abort."
+    flock -n 9 || _Error "easysnapRecv is already running. Abort."
 }
 
 # Create cleanup
@@ -40,9 +38,6 @@ cleanup() {
     # Export pools
     exportPools || _Info "Couldn't export all pools."
 }
-
-
-
 
 
 checkPing() {
@@ -141,7 +136,6 @@ sendSnapshot() {
 }
 
 
-
 # Do some stuff first before actually working
 # Get hostname for info/error messages
 hostName=$(hostname)
@@ -154,16 +148,13 @@ if [[ -t 1 ]]; then
 fi
 
 
-
 # Get arguments and create pool name array
 declare -A dsArr
 declare -A poolArr
 
 
-
 # Check if script runs as root
 [[ ${EUID} -ne 0 ]] && _Error "Please run as root. Abort."
-
 
 
 #Check for lock
@@ -174,12 +165,10 @@ trap cleanup EXIT
 checkConfig
 
 
-
 # Go through the loop for receiving the backups
 while IFS=';' read -r -a snapArr -u "${fd}"; do
-
+	# Filter out empty lines or commented lines
     if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
-
         # Assign the array entries to their variabile and remove
         localDS="${snapArr[0]}" && unset snapArr[0]
         keyDS="${snapArr[1]}" && unset snapArr[1]
@@ -240,25 +229,9 @@ while IFS=';' read -r -a snapArr -u "${fd}"; do
                     ;;
             esac
         fi
-
-        # Remove surplus local snapshots
-        # Loop through the remaining snap arguments
-        for curSnap in "${snapArr[@]}"; do
-            interval="${curSnap%%:*}"
-            snaps="${curSnap##*:}"
-
-            # Check if snaps is a number and remove surplus snapshots
-            if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-                (( snaps == -1 ))                            # -1 means to keep infinite snapshots, so do nothing
-                (( snaps == 0 )) && removeLocalSnapshots     # 0 means to remove all snapshots
-                (( snaps >= 1 )) && removeLocalSnapshots     # 1+ means a given amount of snapshots, remove surplus snapshots
-            fi
-        done
-
     fi
 
     # Unset snap array
     unset  snapArr
 
 done  {fd}<"/etc/easysnap/easysnapRecv"
-
