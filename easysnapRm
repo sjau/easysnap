@@ -147,7 +147,6 @@ while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
     grep ${interval} "${tmpStorage}/${dsName}" > "${tmpStorage}/curSnaps"
     i=1
     while read -u ${fe} line; do
-        printf '%s\n' "zfs destroy ${localDS} - ${interval} - ${i} of ${snaps}"
         if [[ ${i} -gt ${snaps} ]]; then
             zfs destroy "${line}"
 			# Sleep 1 second after destroying a snapshot - running it too quickly can cause zfs to lock
