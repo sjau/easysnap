@@ -18,6 +18,43 @@ _Error() {
     exit 1
 }
 
+# Usage info
+show_help() {
+cat << EOF
+Usage: ${0##*/} [-hv]
+
+    -h  display this help and exit
+    -t  test mode. Doesn't delete snapshots. Best to use with -v.
+    -v  verbose mode.
+EOF
+}
+
+# Initialize our own variables:
+test=0
+verbose=0
+
+OPTIND=1
+# Resetting OPTIND is necessary if getopts was used previously in the script.
+# It is a good idea to make OPTIND local if you process options in a function.
+
+while getopts htv opt; do
+    case $opt in
+        h)
+            show_help
+            exit 0
+            ;;
+        t)  test=1
+            ;;
+        v) verbose=1
+            ;;
+        *)
+            show_help >&2
+            exit 1
+            ;;
+    esac
+done
+shift "$((OPTIND-1))"   # Discard the options and sentinel --
+
 # Create Temporary Directory to store some stuff
 createTmpDir() {
     # Create temporary dir
@@ -148,11 +185,19 @@ while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
     i=1
     while read -u ${fe} line; do
         if [[ ${i} -gt ${snaps} ]]; then
-            zfs destroy "${line}"
+            if [[ ${verbose} -eq 1 ]]; then
+                printf '%s\n' "zfs destroy ${localDS} - ${interval} - snapshot ${i} of ${snaps}"
+            fi
+            if [[ ${test} -eq 0 ]]; then
+                zfs destroy "${line}"
+            fi
 			# Sleep 1 second after destroying a snapshot - running it too quickly can cause zfs to lock
             sleep 1
         else
-            ((i++))
+            if [[ ${verbose} -eq 1 ]]; then
+                printf '%s\n' "${localDS} - ${interval} - snapshot ${i} of ${snaps}"
+            fi
         fi
+        ((i++))
     done {fe}< "${tmpStorage}/curSnaps"
 done {fd}< "${tmpStorage}/cullSnaps"
