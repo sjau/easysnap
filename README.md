@@ -130,7 +130,9 @@ For running scripts before / after receiving snapshots you just call the script 
 
 ## esaysnapRm
 
-easysnapRM is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present) and it will then remove surplus snapshots based on the limits provided.
+easysnapRM is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present) and it will then remove surplus snapshots based on the limits provided. You can use options to only do test run and have verbose output. See help using:
+
+`./easysnapRm -h`
 
 ### How to use
 
