@@ -167,10 +167,10 @@ lineLS="${o}"
 padding $curLenFree
 lineLF="${o}"
 
-printf "%s %s " "${cLD}" "${lineLD:${#cLD}}"
-printf "%s %s " "${cLI}" "${lineLI:${#cLI}}"
-printf "%s %s " "${cLS}" "${lineLS:${#cLS}}"
-printf "%s %s \n" "${cLF}" "${lineLF:${#cLF}}"
+printf "%s %s" "${cLD}" "${lineLD:${#cLD}}"
+printf "%s %s" "${cLI}" "${lineLI:${#cLI}}"
+printf "%s %s" "${cLS}" "${lineLS:${#cLS}}"
+printf "%s %s\n" "${cLF}" "${lineLF:${#cLF}}"
 
 setColor=""
 resetColor=""
@@ -190,8 +190,8 @@ while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
     fi
 
     printf "%s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
-    printf "%s %s " "${interval}" "${lineLI:${#interval}}"
-    printf "%s %s " "${snaps}" "${lineLS:${#snaps}}"
+    printf "%s %s" "${interval}" "${lineLI:${#interval}}"
+    printf "%s %s" "${snaps}" "${lineLS:${#snaps}}"
     printf "%s %s%s \n" "${reqFreeG}" "${lineLF:${#reqFreeG}}" "${resetColor}"
 
     ((c++))
