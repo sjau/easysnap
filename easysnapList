@@ -6,6 +6,46 @@
 #                                                                              #
 #------------------------------------------------------------------------------#
 
+# Usage info
+show_help() {
+cat << EOF
+Usage: ${0##*/} [-hdprt]
+
+    -h  display this help and exit
+    -p  only show results from the zfs properties
+    -r  only show results from the /etc/easysnap/easysnapRecv file
+    -t  output non-colored text
+EOF
+}
+
+prop=1
+recv=1
+textonly=0
+
+OPTIND=1
+# Resetting OPTIND is necessary if getopts was used previously in the script.
+# It is a good idea to make OPTIND local if you process options in a function.
+
+while getopts hprt opt; do
+    case $opt in
+        h)
+            show_help
+            exit 0
+            ;;
+        p)  recv=0
+            ;;
+        r)  prop=0
+            ;;
+        t)  textonly=1
+            ;;
+        *)
+            show_help >&2
+            exit 1
+            ;;
+    esac
+done
+shift "$((OPTIND-1))"   # Discard the options and sentinel --
+
 # Create Temporary Directory to store some stuff
 createTmpDir() {
     # Create temporary dir
@@ -30,75 +70,77 @@ curLenSnaps=0
 curLenFree=0
 
 
-
-# Get all easysnaps from the zfs properties
-while read -r localDS source; do
-    zfs get all "${localDS}" | grep easysnap >> "${tmpStorage}/zfsProperties"
-done < <(zfs list -H -o name)
-# Get all the easysnap properties and split them into usable bits
-while read -r localDS snapName snapProp inherit; do
-    pool="${localDS%%/*}"
-    interval="${snapName#*:}"
-    snaps="${snapProp%:*}"
-    if [[ ${snapProp} == *":"* ]]; then
-        reqFreeG="${snapProp##*:}"
-    else
-        reqFreeG=""
-    fi
-	lenDS=${#localDS}
-	lenInterval=${#interval}
-	lenSnaps=${#snaps}
-	lenFree=${#reqFreeG}
-
-	if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
-	if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
-	if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
-	if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
-
-    printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
-done < "${tmpStorage}/zfsProperties"
-
-
-# Check if easysnapRecv config exists
-if [[ -f "/etc/easysnap/easysnapRecv" ]]; then
-    # Read all the data from the easysnapRecv config
-    while IFS=';' read -r -a snapArr; do
-	    # Filter out empty lines or commented lines
-        if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
-            # Assign the array entries to their variable and remove
-            localDS="${snapArr[0]}" && unset snapArr[0]
-            keyDS="${snapArr[1]}" && unset snapArr[1]
-            raw="${snapArr[2]}" && unset snapArr[2]
-            intermediary="${snapArr[3]}" && unset snapArr[3]
-            exportPool="${snapArr[4]}" && unset snapArr[4]
-            remoteHost="${snapArr[5]}" && unset snapArr[5]
-            remoteDS="${snapArr[6]}" && unset snapArr[6]
-            reqFreeG="${snapArr[7]}" && unset snapArr[7]
-            pool="${localDS%%/*}"
-            # Loop through the remaining snap arguments
-            for curSnap in "${snapArr[@]}"; do
-                interval="${curSnap%%:*}"
-                snaps="${curSnap##*:}"
-                # Check if snaps is a number, if so add to cullSnaps file
-                if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
-
-					lenDS=${#localDS}
-					lenInterval=${#interval}
-					lenSnaps=${#snaps}
-					lenFree=${#reqFreeG}
-
-					if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
-					if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
-					if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
-					if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
-
-                    printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
-                fi
-            done
+if [[ ${prop} -eq 1 ]]; then
+    # Get all easysnaps from the zfs properties
+    while read -r localDS source; do
+        zfs get all "${localDS}" | grep easysnap >> "${tmpStorage}/zfsProperties"
+    done < <(zfs list -H -o name)
+    # Get all the easysnap properties and split them into usable bits
+    while read -r localDS snapName snapProp inherit; do
+        pool="${localDS%%/*}"
+        interval="${snapName#*:}"
+        snaps="${snapProp%:*}"
+        if [[ ${snapProp} == *":"* ]]; then
+            reqFreeG="${snapProp##*:}"
+        else
+            reqFreeG=""
         fi
-        # Unset snap array
-        unset  snapArr
-    done < "/etc/easysnap/easysnapRecv"
+	    lenDS=${#localDS}
+    	lenInterval=${#interval}
+	    lenSnaps=${#snaps}
+    	lenFree=${#reqFreeG}
+
+	    if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
+    	if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
+	    if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
+    	if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
+
+        printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
+    done < "${tmpStorage}/zfsProperties"
+fi
+
+if [[ ${recv} -eq 1 ]]; then
+    # Check if easysnapRecv config exists
+    if [[ -f "/etc/easysnap/easysnapRecv" ]]; then
+        # Read all the data from the easysnapRecv config
+        while IFS=';' read -r -a snapArr; do
+	        # Filter out empty lines or commented lines
+            if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
+                # Assign the array entries to their variable and remove
+                localDS="${snapArr[0]}" && unset snapArr[0]
+                keyDS="${snapArr[1]}" && unset snapArr[1]
+                raw="${snapArr[2]}" && unset snapArr[2]
+                intermediary="${snapArr[3]}" && unset snapArr[3]
+                exportPool="${snapArr[4]}" && unset snapArr[4]
+                remoteHost="${snapArr[5]}" && unset snapArr[5]
+                remoteDS="${snapArr[6]}" && unset snapArr[6]
+                reqFreeG="${snapArr[7]}" && unset snapArr[7]
+                pool="${localDS%%/*}"
+                # Loop through the remaining snap arguments
+                for curSnap in "${snapArr[@]}"; do
+                    interval="${curSnap%%:*}"
+                    snaps="${curSnap##*:}"
+                    # Check if snaps is a number, if so add to cullSnaps file
+                    if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
+
+		    			lenDS=${#localDS}
+			    		lenInterval=${#interval}
+				    	lenSnaps=${#snaps}
+					    lenFree=${#reqFreeG}
+
+    					if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
+	    				if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
+		    			if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
+			    		if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
+
+                        printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
+                    fi
+                done
+            fi
+            # Unset snap array
+            unset  snapArr
+        done < "/etc/easysnap/easysnapRecv"
+    fi
 fi
 
 padding() {
@@ -135,17 +177,22 @@ printf "%s %s " "${cLI}" "${lineLI:${#cLI}}"
 printf "%s %s " "${cLS}" "${lineLS:${#cLS}}"
 printf "%s %s \n" "${cLF}" "${lineLF:${#cLF}}"
 
+setColor=""
+resetColor=""
+
 # Loop through the cullSnaps file
 c=1
 while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
 
-	if (( $c % 2 )); then
-		setColor=$(tput setaf 8)
-		resetColor=$(tput sgr0)
-	else
-		setColor=""
-		resetColor=""
-	fi
+    if [[ ${textonly} -eq 0 ]]; then
+    	if (( $c % 2 )); then
+	    	setColor=$(tput setaf 8)
+		    resetColor=$(tput sgr0)
+    	else
+	    	setColor=""
+		    resetColor=""
+    	fi
+    fi
 
 	printf " %s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
 	printf " %s %s " "${interval}" "${lineLI:${#interval}}"
