@@ -194,10 +194,10 @@ while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
     	fi
     fi
 
-	printf " %s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
-	printf " %s %s " "${interval}" "${lineLI:${#interval}}"
-	printf " %s %s " "${snaps}" "${lineLS:${#snaps}}"
-	printf " %s %s%s \n" "${reqFreeG}" "${lineLF:${#reqFreeG}}" "${resetColor}"
+	printf "%s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
+	printf "%s %s " "${interval}" "${lineLI:${#interval}}"
+	printf "%s %s " "${snaps}" "${lineLS:${#snaps}}"
+	printf "%s %s%s \n" "${reqFreeG}" "${lineLF:${#reqFreeG}}" "${resetColor}"
 
 	((c++))
 
