@@ -140,6 +140,7 @@ easysnapRM is a simple bash script that loops through the dataset properties to 
 
 easysnapList is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present). It prints a list of found dataset incl. how many snapshots it should keep.
 It contains a few options to allows you to output non-coloured text, only dataset with an easynspa custom property or only datasets in the `/etc/easynsap/easysnapRecv` file. See help using:
+
 `./easysnapList -h`
 
 ### How to use
