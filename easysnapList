@@ -148,10 +148,10 @@ padding() {
     done
 }
 
-curLenDS=$((2+$curLenDS))
-curLenInterval=$((2+$curLenInterval))
-curLenSnaps=$((2+$curLenSnaps))
-curLenFree=$((2+$curLenFree))
+curLenDS=$((5+$curLenDS))
+curLenInterval=$((5+$curLenInterval))
+curLenSnaps=$((5+$curLenSnaps))
+curLenFree=$((5+$curLenFree))
 
 cLD="DATASET"
 cLI="INTERVAL"
