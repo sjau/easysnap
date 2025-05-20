@@ -122,7 +122,10 @@ easysnapRecv is a simple bash script which will zfs send/receive datasets or inc
    * Empty lines and lines starting with # are ignored
 1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to.
 
-For running scripts before / after receiving snapshots you just call the script with positional parameters: `./easysnapRecv /path/to/preRunScript /path/to/postRunScript`
+For running scripts before / after receiving snapshots you just call the script with positional parameters:
+
+`./easysnapRecv /path/to/preRunScript /path/to/postRunScript`
+
 **Caveat:** Because positional parameters are being used, you'll need to provide a preRunScript (or path to an empty script) if you want to only run the postRunScript.
 
 ## esaysnapRm
@@ -136,6 +139,8 @@ easysnapRM is a simple bash script that loops through the dataset properties to 
 ## easysnapList
 
 easysnapList is a simple bash script that loops through the dataset properties to find occurences of easynsap:xxx custom properties. It also parses the easysnapRecv config file (if present). It prints a list of found dataset incl. how many snapshots it should keep.
+It contains a few options to allows you to output non-coloured text, only dataset with an easynspa custom property or only datasets in the `/etc/easynsap/easysnapRecv` file. See help using:
+`./easysnapList -h`
 
 ### How to use
 
