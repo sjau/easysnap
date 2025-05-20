@@ -85,15 +85,15 @@ if [[ ${prop} -eq 1 ]]; then
         else
             reqFreeG=""
         fi
-	    lenDS=${#localDS}
-    	lenInterval=${#interval}
-	    lenSnaps=${#snaps}
-    	lenFree=${#reqFreeG}
+        lenDS=${#localDS}
+        lenInterval=${#interval}
+        lenSnaps=${#snaps}
+        lenFree=${#reqFreeG}
 
-	    if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
-    	if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
-	    if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
-    	if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
+        if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
+        if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
+        if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
+        if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
 
         printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
     done < "${tmpStorage}/zfsProperties"
@@ -104,16 +104,11 @@ if [[ ${recv} -eq 1 ]]; then
     if [[ -f "/etc/easysnap/easysnapRecv" ]]; then
         # Read all the data from the easysnapRecv config
         while IFS=';' read -r -a snapArr; do
-	        # Filter out empty lines or commented lines
+            # Filter out empty lines or commented lines
             if [[ ! -z "${snapArr[0]}" ]] && [[ "${snapArr[0]}" != *"#"* ]]; then
                 # Assign the array entries to their variable and remove
                 localDS="${snapArr[0]}" && unset snapArr[0]
                 keyDS="${snapArr[1]}" && unset snapArr[1]
-                raw="${snapArr[2]}" && unset snapArr[2]
-                intermediary="${snapArr[3]}" && unset snapArr[3]
-                exportPool="${snapArr[4]}" && unset snapArr[4]
-                remoteHost="${snapArr[5]}" && unset snapArr[5]
-                remoteDS="${snapArr[6]}" && unset snapArr[6]
                 reqFreeG="${snapArr[7]}" && unset snapArr[7]
                 pool="${localDS%%/*}"
                 # Loop through the remaining snap arguments
@@ -123,15 +118,15 @@ if [[ ${recv} -eq 1 ]]; then
                     # Check if snaps is a number, if so add to cullSnaps file
                     if [[ ${snaps} =~ ^-?[0-9]+$ ]]; then
 
-		    			lenDS=${#localDS}
-			    		lenInterval=${#interval}
-				    	lenSnaps=${#snaps}
-					    lenFree=${#reqFreeG}
+                        lenDS=${#localDS}
+                        lenInterval=${#interval}
+                        lenSnaps=${#snaps}
+                        lenFree=${#reqFreeG}
 
-    					if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
-	    				if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
-		    			if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
-			    		if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
+                        if [[ ${lenDS} -gt ${curLenDS} ]]; then curLenDS=${lenDS}; fi
+                        if [[ ${lenInterval} -gt ${curLenInterval} ]]; then curLenInterval=${lenInterval}; fi
+                        if [[ ${lenSnaps} -gt ${curLenSnaps} ]]; then curLenSnaps=${lenSnaps}; fi
+                        if [[ ${lenFree} -gt ${curLenFree} ]]; then curLenFree=${lenFree}; fi
 
                         printf '%s\n' "${pool} ${localDS} ${interval} ${snaps} ${reqFreeG}" >> "${tmpStorage}/cullSnaps"
                     fi
@@ -144,13 +139,13 @@ if [[ ${recv} -eq 1 ]]; then
 fi
 
 padding() {
-	o=""
-	l=${1}
-	p=0
-	while [[ ${p} -lt ${l} ]]; do
-		o="${o} "
-		((p++))
-	done
+    o=""
+    l=${1}
+    p=0
+    while [[ ${p} -lt ${l} ]]; do
+        o="${o} "
+        ((p++))
+    done
 }
 
 curLenDS=$((2+$curLenDS))
@@ -185,20 +180,20 @@ c=1
 while read -r -u ${fd} pool localDS interval snaps reqFreeG; do
 
     if [[ ${textonly} -eq 0 ]]; then
-    	if (( $c % 2 )); then
-	    	setColor=$(tput setaf 8)
-		    resetColor=$(tput sgr0)
-    	else
-	    	setColor=""
-		    resetColor=""
-    	fi
+        if (( $c % 2 )); then
+            setColor=$(tput setaf 8)
+            resetColor=$(tput sgr0)
+        else
+            setColor=""
+            resetColor=""
+        fi
     fi
 
-	printf "%s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
-	printf "%s %s " "${interval}" "${lineLI:${#interval}}"
-	printf "%s %s " "${snaps}" "${lineLS:${#snaps}}"
-	printf "%s %s%s \n" "${reqFreeG}" "${lineLF:${#reqFreeG}}" "${resetColor}"
+    printf "%s%s %s" "${setColor}" "${localDS}" "${lineLD:${#localDS}}"
+    printf "%s %s " "${interval}" "${lineLI:${#interval}}"
+    printf "%s %s " "${snaps}" "${lineLS:${#snaps}}"
+    printf "%s %s%s \n" "${reqFreeG}" "${lineLF:${#reqFreeG}}" "${resetColor}"
 
-	((c++))
+    ((c++))
 
 done {fd}< "${tmpStorage}/cullSnaps"
