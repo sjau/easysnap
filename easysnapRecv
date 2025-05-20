@@ -156,6 +156,9 @@ declare -A poolArr
 # Check if script runs as root
 [[ ${EUID} -ne 0 ]] && _Error "Please run as root. Abort."
 
+# Check for pre and post scripts
+preEasysnap="${1}"
+postEasysnap="${2}"
 
 #Check for lock
 lock || _Error "Couldn't check for lock."
@@ -164,6 +167,10 @@ trap cleanup EXIT
 # Check for the config file
 checkConfig
 
+# Check if preEasynap argument was given and run it
+if [[ ! -z "${preEasysnap}" ]]; then
+    source "${preEasysnap}"
+fi
 
 # Go through the loop for receiving the backups
 while IFS=';' read -r -a snapArr -u "${fd}"; do
@@ -235,3 +242,8 @@ while IFS=';' read -r -a snapArr -u "${fd}"; do
     unset  snapArr
 
 done  {fd}<"/etc/easysnap/easysnapRecv"
+
+# Run postEasysnap
+if [[ ! -z "${postEasysnap}" ]]; then
+    source "${postEasysnap}"
+fi
