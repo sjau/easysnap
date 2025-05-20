@@ -100,7 +100,7 @@ Adjust the dataset and mountpoint variable to your system and run it. It will on
 
 ## esaysnapRecv
 
-easysnapRecv is a simple bash script which will zfs send/receive datasets or incremental snapshots from the same machine or a remote one to the machine where the script is run (pull). It also can handle encrypted datasets (that feature is still in zfs master). By default it will just send/recv the incremental snapshot
+easysnapRecv is a simple bash script which will zfs send/receive datasets or incremental snapshots from the same machine or a remote one to the machine where the script is run (pull). It also can handle encrypted datasets. By default it will just send/recv the incremental snapshots. It can optionally run scripts before and after receiving snapshots.
 
 ### How to use
 
@@ -121,6 +121,9 @@ easysnapRecv is a simple bash script which will zfs send/receive datasets or inc
    * __Notice:__ easysnapRecv will by default use the `-F` flag, meaning that it will auto-rollback to the latest snapshot when required.
    * Empty lines and lines starting with # are ignored
 1. Setup a cron or systemd timer that will run the easysnapRecv script when you want to.
+
+For running scripts before / after receiving snapshots you just call the script with positional parameters: `./easysnapRecv /path/to/preRunScript /path/to/postRunScript`
+**Caveat:** Because positional parameters are being used, you'll need to provide a preRunScript (or path to an empty script) if you want to only run the postRunScript.
 
 ## esaysnapRm
 
